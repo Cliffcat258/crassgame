@@ -55,36 +55,86 @@ typedef struct {
 list4 list4_new(int size) {
 	int capacity = size * 2;
 	if(capacity == 0) { capacity = 1; }
-	list a;
+	list4 a;
 	a.size = size; a.capacity = capacity; a.d = malloc(capacity * 4);
 	return a;
 }
 
-void list4_changesize(list *a, int capacity) {
-	char *b = realloc(a->d, capacity * 4);
+void list4_changesize(list4 *a, int capacity) {
+	int *b = realloc(a->d, capacity * 4);
 	a->d = b; a-> capacity = capacity;
 	return;
 }
 
-void list4_add(int *a, int size, list *l) { //size == size of a in bytes //a == thing to add to list(same type as list)
+void list4_add(int *a, int size, list4 *l) { //size == size of a in bytes //a == thing to add to list(same type as list)
 	int amount = size / 4;
 	for(;l->size + amount > l->capacity;) { //loop lol
-		list_changesize(l, l->capacity * 2);
+		list4_changesize(l, l->capacity * 2);
 	}
-	memcpy(l->d + l->size * 4, a, size);
+	memcpy(l->d + l->size, a, size);
 	l->size += amount;
 	return;
 }
 
-void list4_add1(int a, list *l) {
+void list4_add1(int a, list4 *l) {
 	if(l->size == l-> capacity) {
-		list4_changesize
+		list4_changesize(l, l->capacity * 2);
 	}
-	l->d[size + 1] = a;
+	memcpy(l->d + l->size, &a, 4);
+	l->size += 1;
+	return;
+}
+
+void list4_print(list4 *h) {
+	for(int i = 0; i < h->size; i++) {
+		printf("%d \n", h->d[i]);
+	}
+}
+
+typedef struct {
+	int capacity;
+	int size;
+	float *d;
+} list4f;
+
+list4f list4f_new(int size) {
+	int capacity = size * 2;
+	if(capacity == 0) { capacity = 1; }
+	list4f a;
+	a.size = size; a.capacity = capacity; a.d = malloc(capacity * 4);
+	return a;
+}
+
+void list4f_changesize(list4f *a, int capacity) {
+	float *b = realloc(a->d, capacity * 4);
+	a->d = b; a-> capacity = capacity;
+	return;
+}
+
+void list4f_add(float *a, int size, list4f *l) { //size == size of a in bytes //a == thing to add to list(same type as list)
+	int amount = size / 4;
+	for(;l->size + amount > l->capacity;) { //loop lol
+		list4f_changesize(l, l->capacity * 2);
+	}
+	memcpy(l->d + l->size, a, size);
 	l->size += amount;
 	return;
 }
 
+void list4f_add1(float a, list4f *l) {
+	for(;l->size == l-> capacity;) {
+		list4f_changesize(l, l->capacity * 2);
+	}
+	memcpy(l->d + l->size, &a, 4);
+	l->size += 1;
+	return;
+}
+
+void list4f_print(list4f *h) {
+	for(int i = 0; i < h->size; i++) {
+		printf("%f \n", h->d[i]);
+	}
+}
 
 typedef struct {
 	int x; int y; int z;
@@ -93,6 +143,24 @@ typedef struct {
 vec3 vec3_new(float x, float y, float z) {
 	vec3 a;
 	a.x = x; a.y = y; a.z = z;
+	return a;
+}
+
+vec3 vec3_add(vec3 a, vec3 b) {
+	vec3 c;
+	c.x = a.x + b.x;
+	c.y = a.y + b.y;
+	c.z = a.z + b.z;
+	return c;
+}
+
+typedef struct {
+	int x; int y; int z; int w;
+} vec4;
+
+vec4 vec4_new(float x, float y, float z, float w) {
+	vec4 a;
+	a.x = x; a.y = y; a.z = z; a.w = w;
 	return a;
 }
 

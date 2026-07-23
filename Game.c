@@ -2,12 +2,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <math.h>
 #include "base.h"
 
 typedef struct {
 	int inited; int changed; int changed2;
 	int empty; //if chunk only contains air
-	int[4096] bs; vec3 offset;
+	/*int[4096]*/list4 bs; vec3 offset;
 	int shouldbesaved;
 	float time;
 } Chunk16;
@@ -38,8 +39,8 @@ typedef struct {
 } Entity;
 
 typedef struct {
-	Vector3[] normals; Vector3[] verts; Vector2[] uvs;
-	int[][][] faces; int[] color;
+	/*Vector3[]*/list4f normals; /*Vector3[]*/list4f verts; /*Vector2[]*/list4f uvs;
+	/*int[][][]*/ list4 faces; /*int[]*/list4 color;
 } Model;
 
 typedef struct {
@@ -62,14 +63,14 @@ int ElementBufferObject3;
 int VertexBufferObject4;
 int ElementBufferObject4;
 
-uint[] indices;
+/*uint[]*/list4 indices;
 
 Shader shader;
 Shader shader2;
 Shader shader3;
 
 int Vec3ToIntChunk(vec3 vec) {
-	int j = (int)vec.X * 256 + (int)vec.Z * 16 + (int)vec.Y;
+	int j = (int)vec.x * 256 + (int)vec.z * 16 + (int)vec.y;
 	return j;
 }
 
@@ -83,510 +84,320 @@ Chunk16 GenChunk16(vec3 offset, int b) {
 	}
 	return /*true*/ 1;
 }
-/*(List<float>, List<uint>)*/ list AddModelToArrs(list *floats, list *indices, vec3 offset, Model *model) {
-	if(model->normals == null) {
-		return (floats, indices);
-	}
+/*(List<float>, List<uint>)*/void AddModelToArrs(list4f *floats, list4 *indices, vec3 offset, Model *model) { //void bc it manipulates the memory so doesn't need to return anything
+	//if(model->normals == null) { //idk how to check this rn
+	//	return (floats, indices);
+	//}
 	//floats.Capacity += model.verts.Length * 8; //uhh yeah for now it can do bc ChunkToArr already does this, but later make this functional
-	//indices.Capacity += model.faces.Length * 3;
+	//indices.Capacity += model.faces.Length * 3; //now the list data type does that bc i'm very cool and good at programming B)
 	int floatslen = floats.size / 8;
 	for(int i = 0; i < model->verts.size; i++) {
-		list4_add1()
-		floats.Add(model->verts[i].x + offset.x); //size of float is 4 so should be good
-		floats.Add(model->verts[i].y + offset.y);
-		floats.Add(model->verts[i].z + offset.z);
-		floats.Add(model->uvs[i].x);
-		floats.Add(model->uvs[i].y);
-		floats.Add(model->normals[0].x);
-		floats.Add(model->normals[0].y);
-		floats.Add(model->normals[0].z);
+		//floats.Add(model->verts[i].x + offset.x);
+		list4f_add1(model->verts.d[i * 3 + 0] + offset.x, floats);
+		list4f_add1(model->verts.d[i * 3 + 1] + offset.y, floats);
+		list4f_add1(model->verts.d[i * 3 + 2] + offset.z, floats);
+		list4f_add1(model->uvs.d[i * 2 + 0], floats);
+		list4f_add1(model->uvs.d[i * 2 + 1], floats);
+		list4f_add1(model->normals.d[i * 3 + 0], floats);
+		list4f_add1(model->normals.d[i * 3 + 1], floats);
+		list4f_add1(model->normals.d[i * 3 + 2], floats);
 	}
 	for(int i = 0; i < model->faces.size; i++) {
-		indices.Add(Convert.ToUInt32(model->faces[i][0][0] + floatslen));
-		indices.Add(Convert.ToUInt32(model->faces[i][1][0] + floatslen));
-		indices.Add(Convert.ToUInt32(model->faces[i][2][0] + floatslen));
+		//indices.Add(Convert.ToUInt32(model->faces[i][0][0] + floatslen));
+		list4_add1(model->faces.d[i * 9 + 0] + floatslen, indices);
+		list4_add1(model->faces.d[i * 9 + 3] + floatslen, indices);
+		list4_add1(model->faces.d[i * 9 + 6] + floatslen, indices);
 	}
-	return(floats, indices);
+	//return(floats, indices);
+	return;
 }
-	static (float[], uint[]) AddModelToArrs2(float[] floats, uint[] indices, Vector3 offset, Model model) {
-		if(model.normals == null) {
-			return (floats, indices);
+
+Model RotateModel2(Model *model, vec3 heading) { //ok so this should return a rotated model
+	double yaw = atan(heading.x / -heading.z) * (180.0 / pi);
+	double pitch = asin(heading.y) * (180.0 / pi);
+
+	Model model2 = RotateModel(&model, 'z', 90.0);
+	model2 = RotateModel(&model2, 'y', -yaw + 90.0);
+	return model2;
+}
+
+Model RotateModel(Model *model, char axis, double angle) {
+	Model model2 = CopyModel(model);
+	//angle = angle * MathHelper.DegToRad;
+	angle = angle * pi / 180.0;
+	if(axis == 'x') {
+		for(int i = 0; i < model->verts.size; i++) {
+			vec4 v = vec4_new(model->verts.d[i * 3 + 0], model->verts.d[i * 3 + 1], model->verts.d[i * 3 + 2], 1.0) * Matrix4.CreateRotationX(angle); //TODO huh if find out also fix other axis
+			model2.verts.d[i * 3 + 0] = v.x;
+			model2.verts.d[i * 3 + 1] = v.y;
+			model2.verts.d[i * 3 + 2] = v.z;
 		}
-		float[] floats2 = new float[floats.Length + model.verts.Length * 8];
-		uint[] indices2 = new uint[indices.Length + model.faces.Length * 3];
-		floats.CopyTo(floats2, 0);
-		indices.CopyTo(indices2, 0);
-	
-		for(int i = 0; i < model.verts.Length; i++) {
-			floats2[floats.Length + i * 8] = model.verts[i].X + offset.X;
-			floats2[floats.Length + i * 8 + 1] = model.verts[i].Y + offset.Y;
-			floats2[floats.Length + i * 8 + 2] = model.verts[i].Z + offset.Z;
-			floats2[floats.Length + i * 8 + 3] = model.uvs[i].X;
-			floats2[floats.Length + i * 8 + 4] = model.uvs[i].Y;
-			floats2[floats.Length + i * 8 + 5] = model.normals[0].X;
-			floats2[floats.Length + i * 8 + 6] = model.normals[0].Y;
-			floats2[floats.Length + i * 8 + 7] = model.normals[0].Z;
-		}
-		for(int i = 0; i < model.faces.Length; i++) {
-			indices2[indices.Length + i * 3] = Convert.ToUInt32(model.faces[i][0][0] + floats.Length / 8);
-			indices2[indices.Length + i * 3 + 1] = Convert.ToUInt32(model.faces[i][1][0] + floats.Length / 8);
-			indices2[indices.Length + i * 3 + 2] = Convert.ToUInt32(model.faces[i][2][0] + floats.Length / 8);
-		}
-		return (floats2, indices2);
+		//for(int i = 0; i < model->normals.size; i++) { //TODO find out if this was even useful I think it was not but idk
+		//	model2.normals[i] = model.normals[i] * Matrix3.CreateRotationX(angle);
+		//}
 	}
-	(float[], uint[]) MergeFloatArrs3(float[] floats2, uint[] indices2, float[] floats, uint[] indices) { // for merging two arrays (disguised as one jagged array)
-		int l = indices.Length - indices2.Length;
-		if(l <= 0) {
-			return (floats, indices);
+	if(axis == 'y') {
+		for(int i = 0; i < mode->.verts.Length; i++) {
+			Vector4 v = new Vector4 { X = model.verts[i].X, Y = model.verts[i].Y, Z = model.verts[i].Z, W = 1 } * Matrix4.CreateRotationY(angle);
+			model2.verts[i] = new Vector3 { X = v.X, Y = v.Y, Z = v.Z };
 		}
-		//Console.WriteLine(indices[l + 1]);
-		floats2.CopyTo(floats, floats.Length - floats2.Length);
-		int l2 = (floats.Length - floats2.Length) / 7;
-		for(int i = 0; i < indices2.Length; i++) {
-			indices[i + l] = indices2[i] + (uint)l2;
-		}
-		return (floats, indices);
 	}
-	(float[], uint[]) MergeFloatArrs5(float[][] floats, uint[][] indices) { //making a whole new function to save minor inconvinience lol x2
-		int[] c = new int[floats.Length]; //floats
-		int c2 = 0;
-		for(int i = 0; i < floats.Length; i++) {
-			c[i] = floats[i].Length;
-			c2 += floats[i].Length;
+	if(axis == 'z') {
+		for(int i = 0; i < mode->.verts.Length; i++) {
+			Vector4 v = new Vector4 { X = model.verts[i].X, Y = model.verts[i].Y, Z = model.verts[i].Z, W = 1 } * Matrix4.CreateRotationZ(angle);
+			model2.verts[i] = new Vector3 { X = v.X, Y = v.Y, Z = v.Z };
 		}
-		float[] floats2 = new float[c2];
-	
-		int[] d = new int[indices.Length]; //indices
-		int d2 = 0;
-		for(int i = 0; i < indices.Length; i++) {
-			d[i] = indices[i].Length;
-			d2 += indices[i].Length;
-		}
-		uint[] indices2 = new uint[d2];
-	
-		int e = 0; // do the floats
-		int f = 0; //indices thing
-		int g = 0; int h = 0;
-		for(int i = 0; i < floats.Length; i++) { // runs 3000 times or whatever
-			floats[i].CopyTo(floats2, e);
-			for(int i2 = 0; i2 < indices[i].Length; i2++) {
-				indices2[i2 + f] = Convert.ToUInt32(indices[i][i2] + e / 7);
-			}
-			e += c[i]; f += d[i];
-		}
-		return (floats2, indices2);
 	}
-	(float[], uint[]) MergeFloatArrs4(float[][] floats, uint[][] indices) { //making a whole new function to save minor inconvinience lol
-		int[] c = new int[floats.Length]; //floats
-		int c2 = 0;
-		for(int i = 0; i < floats.Length; i++) {
-			c[i] = floats[i].Length;
-			c2 += floats[i].Length;
+	return model2;
+}
+
+Chunk16* GetNeighbouringChunk(vec3 offset, /*Chunk16[]*/list chunks, int index) {
+	Chunk16 c = Chunk16_new();
+
+	for(int i = 0; i < chunks->size; i++) {
+		if(chunks[i].offset == vec3_add(chunks[index]->offset, offset)) {
+			return chunks[i];
 		}
-		float[] floats2 = new float[c2/* + uiverts[0].Length * 40*/];
-	
-		int[] d = new int[indices.Length]; //indices
-		int d2 = 0;
-		for(int i = 0; i < indices.Length; i++) {
-			d[i] = indices[i].Length;
-			d2 += indices[i].Length;
-		}
-		uint[] indices2 = new uint[d2/* + uiindices[0].Length * 40*/];
-	
-		int e = 0; // do the floats
-		int f = 0; //indices thing
-		int g = 0; int h = 0;
-		for(int i = 0; i < floats.Length; i++) { // runs 3000 times or whatever
-			floats[i].CopyTo(floats2, e);
-			for(int i2 = 0; i2 < indices[i].Length; i2++) {
-				indices2[i2 + f] = Convert.ToUInt32(indices[i][i2] + e / 7);
-			}
-			e += c[i]; f += d[i];
-		}
-		return (floats2, indices2);
 	}
-	static (float[], uint[]) MergeFloatArrs(float[][] floats, uint[][] indices) {
-		int[] c = new int[floats.Length - 1]; //floats
-		int c2 = 0;
-		for(int i = 0; i < floats.Length - 1; i++) {
-			c[i] = floats[i].Length;
-			c2 += floats[i].Length;
-		}
-		float[] floats2 = new float[c2];
-	
-		int[] d = new int[indices.Length - 1]; //indices
-		int d2 = 0;
-		for(int i = 0; i < indices.Length - 1; i++) {
-			d[i] = indices[i].Length;
-			d2 += indices[i].Length;
-		}
-		uint[] indices2 = new uint[d2];
-	
-		int e = 0; // do the floats
-		int f = 0; //indices thing
-		int g = 0; int h = 0;
-		for(int i = 0; i < floats.Length - 1; i++) { // runs 3000 times or whatever
-			floats[i].CopyTo(floats2, e);
-			for(int i2 = 0; i2 < indices[i].Length; i2++) {
-				indices2[i2 + f] = Convert.ToUInt32(indices[i][i2] + e / 7);
-			}
-			e += c[i]; f += d[i];
-		}
-		return (floats2, indices2);
+	c.time = 69; //why exactly do I need a time variable and it to be set to 69? idk but it will stay this way lol
+	return &c;
+}
+
+Model CopyModel(Model *model) {
+	Model model2;
+
+	model2.verts = list4f_new(model->verts.size);
+	for(int i = 0; i < model->verts.size; i++) {
+		model2.verts.d[i] = model->verts.d[i];
 	}
-	static (Chunk16[], Vector3[]) LoadFeaturesFromTxt(Chunk16[] features) {
-		Vector3[] vs = new Vector3[10];
-		for(int i = 0; i < 10; i++) {
-			Chunk16 c = new Chunk16();
-			c.bs = new Int16[4096];
-			StreamReader sr;
-			try {
-				sr = new StreamReader(Directory.GetCurrentDirectory() + "/stuff/features/feature" + i + ".txt");
-				vs[i].X = Convert.ToSingle(sr.ReadLine());
-				vs[i].Y = Convert.ToSingle(sr.ReadLine());
-				vs[i].Z = Convert.ToSingle(sr.ReadLine());
-				for(int index = 0; index < 4096; index++) {
-					c.bs[index] = Convert.ToByte(Convert.ToString(Convert.ToChar(sr.Read())));
-					//c.bs[Convert.ToInt32(MathF.Floor(index / 256) % 16)][Convert.ToInt32(MathF.Floor(index / 16) % 16)][Convert.ToInt32(MathF.Floor(index / 1) % 16)].id = Convert.ToUInt16(Convert.ToString(Convert.ToChar(sr.Read())));
-					sr.Read();
-				}
-				sr.Close();
-				features[i] = c;
-				features[i].inited = true;
-			}
-			catch {
-	
-			}
-		}
-		return (features, vs);
+	model2.uvs = list4f_new(model->uvs.size);
+	for(int i = 0; i < model->uvs.Length; i++) {
+		model2.uvs.d[i] = model->uvs.d[i];
 	}
-	static Model RotateModel2(Model model, Vector3 heading) {
-		float yaw = MathF.Atan(heading.X / -heading.Z) * (180f / MathF.PI);
-		float pitch = MathF.Asin(heading.Y) * (180f / MathF.PI);
-		//Console.WriteLine(yaw + " " + pitch);
-		//float pitch = MathF.Atan(MathF.Sqrt(heading.X * heading.X + heading.Z * heading.Z) / heading.Y);
-		Model model2 = RotateModel(model, "z", 90f);
-		model2 = RotateModel(model2, "y", -yaw + 90f);
-		//model2 = RotateModel(model2, "z", pitch + 90f);
-		return model2;
+	model2.normals = list4f_new(model->normals.size);
+	for(int i = 0; i < model->normals.size; i++) {
+		model2.normals.d[i] = model->normals.d[i];
 	}
-	static Model RotateModel(Model model, string axis, float angle) {
-		Model model2 = CopyModel(model);
-		angle = angle * MathHelper.DegToRad;
-		if(axis == "x") {
-			for(int i = 0; i < model.verts.Length; i++) {
-				Vector4 v = new Vector4 { X = model.verts[i].X, Y = model.verts[i].Y, Z = model.verts[i].Z, W = 1 } * Matrix4.CreateRotationX(angle);
-				model2.verts[i] = new Vector3 { X = v.X, Y = v.Y, Z = v.Z };
-			}
-			for(int i = 0; i < model.normals.Length; i++) {
-				model2.normals[i] = model.normals[i] * Matrix3.CreateRotationX(angle);
-			}
-		}
-		if(axis == "y") {
-			for(int i = 0; i < model.verts.Length; i++) {
-				Vector4 v = new Vector4 { X = model.verts[i].X, Y = model.verts[i].Y, Z = model.verts[i].Z, W = 1 } * Matrix4.CreateRotationY(angle);
-				model2.verts[i] = new Vector3 { X = v.X, Y = v.Y, Z = v.Z };
-			}
-			for(int i = 0; i < model.normals.Length; i++) {
-				model2.normals[i] = model.normals[i] * Matrix3.CreateRotationY(angle);
-			}
-		}
-		if(axis == "z") {
-			for(int i = 0; i < model.verts.Length; i++) {
-				Vector4 v = new Vector4 { X = model.verts[i].X, Y = model.verts[i].Y, Z = model.verts[i].Z, W = 1 } * Matrix4.CreateRotationZ(angle);
-				model2.verts[i] = new Vector3 { X = v.X, Y = v.Y, Z = v.Z };
-			}
-			for(int i = 0; i < model.normals.Length; i++) {
-				model2.normals[i] = model.normals[i] * Matrix3.CreateRotationZ(angle);
-			}
-		}
-		return model2;
+	model2.faces = list4_new(model->faces.size);
+	for(int i = 0; i < model->normals.size; i++) {
+		model2.faces.d[i] = model->faces.d[i];
 	}
-	static Chunk16 GetNeighbouringChunk(Vector3 offset, Chunk16[] chunks, int index) {
-		Chunk16 c = new Chunk16();
-	
-		for(int i = 0; i < chunks.Length; i++) {
-			if(chunks[i].offset == chunks[index].offset + offset) {
-				return chunks[i];
-			}
-		}
-		c.time = 69;
-		return c;
+	return model2;
+}
+
+Model ScaleModel(Model *model, float scale) {
+	Model model2 = CopyModel(model);
+	for(int i = 0; i < model2.verts.size; i++) {
+		model2.verts.d[i] *= scale;
 	}
-	static Model CopyModel(Model model) {
-		Model model2 = new Model();
-		model2.verts = new Vector3[model.verts.Length];
-		for(int i = 0; i < model.verts.Length; i++) {
-			model2.verts[i] = new Vector3();
-			model2.verts[i].X = model.verts[i].X;
-			model2.verts[i].Y = model.verts[i].Y;
-			model2.verts[i].Z = model.verts[i].Z;
+	return model2;
+}
+
+Model GetModelTexture2(Model *model2, int id) {
+	Model model = CopyModel(model2);
+	if(id < 128 * 3) {
+		for(int i = 0; i < model.uvs.Length / 2; i++) { // /2 bc uvs are in a single list not a vec2 list
+			model.uvs.d[i * 2 + 0] = model.uvs.d[i * 2 + 0] * (1.0 / 128.0) + (id % 128) / 128.0;
+			model.uvs.d[i * 2 + 1] = model.uvs.d[i * 2 + 1] * (1.0 / 128.0) + floor(id / 128.0) / 128.0;
 		}
-		model2.uvs = new Vector2[model.uvs.Length];
-		for(int i = 0; i < model.uvs.Length; i++) {
-			model2.uvs[i] = new Vector2();
-			model2.uvs[i].X = model.uvs[i].X;
-			model2.uvs[i].Y = model.uvs[i].Y;
+	} else {
+		id = (int)floor(id / 3.0);
+		for(int i = 0; i < model.uvs.Length / 2; i++) { // /2 bc uvs are in a single list not a vec2 list
+			model.uvs.d[i * 2 + 0] = model.uvs.d[i * 2 + 0] * (1.0 / 128.0) + (id % 128) / 128.0;
+			model.uvs.d[i * 2 + 1] = model.uvs.d[i * 2 + 1] * (1.0 / 128.0) + floor(id / 128.0) / 128.0;
 		}
-		model2.normals = new Vector3[model.normals.Length];
-		for(int i = 0; i < model.normals.Length; i++) {
-			model2.normals[i] = new Vector3();
-			model2.normals[i].X = model.normals[i].X;
-			model2.normals[i].Y = model.normals[i].Y;
-			model2.normals[i].Z = model.normals[i].Z;
-		}
-		model2.faces = new int[model.faces.Length][][];
-		for(int i = 0; i < model.faces.Length; i++) { 
-			model2.faces[i] = new int[model.faces[i].Length][];
-			for(int i2 = 0; i2 < model.faces[i].Length; i2++) {
-				model2.faces[i][i2] = new int[model.faces[i][i2].Length];
-				for(int i3 = 0; i3 < model.faces[i][i2].Length; i3++) {
-					model2.faces[i][i2][i3] = model.faces[i][i2][i3];
-				}
-			}
-		}
-		return model2;
 	}
-	static Model ScaleModel(Model model, float scale) {
-		Model model2 = CopyModel(model);
-		for(int i = 0; i < model2.verts.Length; i++) {
-			model2.verts[i] *= scale;
+	return model;
+}
+
+Vector3 IntToVec3Chunk(int a) { //XZY
+	vec3 vec = vec3_new((a / 256) % 16, a % 16, (a / 16) % 16);
+	return vec;
+}
+
+Chunk16 RotateChunk(Chunk16 *chunk, char axis) {
+	vec3 v3 = vec3_new(0,0,0);
+	Chunk16 chunk2 = Chunk16_new();
+	chunk2.bs = list4_new(4096);
+	if(axis == 'x') {
+		for(int i2 = 0; i2 < 4096; i2++) {
+			v3 = IntToVec3Chunk(i2);
+			chunk2.bs.d[Vec3ToIntChunk(vec3_new(v3.x, v3.z, v3.y))] = chunk->bs.d[i2];
 		}
-		return model2;
 	}
-	static Model GetModelTexture2(Model model2, int id) {
-		Model model = CopyModel(model2);
-		if(id < 128 * 3) {
-			for(int i = 0; i < model.uvs.Length; i++) {
-				model.uvs[i].X = model.uvs[i].X * (1f / 128f) + (id % 128f) / 128f;
-				model.uvs[i].Y = model.uvs[i].Y * (1f / 128f) + MathF.Floor(id / 128f) / 128f;
-			}
-		} else {
-			id = (int)MathF.Floor(id / 3f);
-			for(int i = 0; i < model.uvs.Length; i++) {
-				model.uvs[i].X = model.uvs[i].X * (1f / 128f) + (id % 128f) / 128f;
-				model.uvs[i].Y = model.uvs[i].Y * (1f / 128f) + MathF.Floor(id / 128f) / 128f;
-			}
+	if(axis == "z") {
+		for(int i2 = 0; i2 < 4096; i2++) {
+			v3 = IntToVec3Chunk(i2);
+			chunk2.bs[Vec3ToIntChunk(vec3_new(v3.y, v3.x, v3.z))] = chunk->bs[i2];
 		}
-		return model;
 	}
-	static Model GetModelTexture3(Model model2, int id) {
-		Model model = CopyModel(model2);
-		for(int i = 0; i < model.uvs.Length; i++) {
-			model.uvs[i].X = model.uvs[i].X * (1f / 256f) + (id % 256f) / 256f;
-			model.uvs[i].Y = model.uvs[i].Y * (1f / 256f) + MathF.Floor(id / 256f) / 256f;
+	chunk2.shouldbesaved = chunk->shouldbesaved; chunk2.changed2 = chunk->changed2; chunk2.empty = chunk->empty; chunk2.offset = chunk->offset; chunk2.time = chunk->time; chunk2.inited = chunk->inited; chunk2.changed = chunk->changed;
+	return chunk2;
+}
+
+void FlipBitmap(list4 *bitmap) {
+	list4 bitmap2 = list4_new(256);
+	for(int i = 0; i < 15; i++) {
+		for(int i2 = 0; i2 < 15; i2++) {
+			bitmap2.d[i * 16 + (15 - i2)] = bitmap->d[i * 16 + i2];
 		}
-		return model;
 	}
-	static Model GetModelTexture(Model model, int id) {
-		if(id < 128 * 3) {
-			for(int i = 0; i < model.uvs.Length; i++) {
-				model.uvs[i].X = model.uvs[i].X * (1f / 128f) + (id % 128f) / 128f;
-				model.uvs[i].Y = model.uvs[i].Y * (1f / 128f) + MathF.Floor(id / 128f) / 128f;
-			}
-		} else {
-			id = (int)MathF.Floor(id / 3f);
-			for(int i = 0; i < model.uvs.Length; i++) {
-				model.uvs[i].X = model.uvs[i].X * (1f / 128f) + (id % 128f) / 128f;
-				model.uvs[i].Y = model.uvs[i].Y * (1f / 128f) + MathF.Floor(id / 128f) / 128f;
-			}
+	for(int i = 0; i < 15; i++) {
+		for(int i2 = 0; i2 < 15; i2++) {
+			bitmap->d[(15 - i) * 16 + i2] = bitmap2.d[i * 16 + i2];
 		}
-		return model;
 	}
-	static Model GetModelTextureInverse(Model model, int id) {
-		if(id > 128 * 3) {
-			id = (int)MathF.Floor(id / 3f);
-		}
-		for(int i = 0; i < model.uvs.Length; i++) {
-			model.uvs[i].X -= (id % 128f) / 128f;
-			model.uvs[i].X *= 128;
-			model.uvs[i].Y -= MathF.Floor(id / 128f) / 128f;
-			model.uvs[i].Y *= 128;
-		}
-		return model;
-	}
-	static Vector3 IntToVec3Chunk(int a) { //XZY
-		Vector3 vec3 = new Vector3((a / 256) % 16, a % 16, (a / 16) % 16);
-		return vec3;
-	}
-	
-	static Chunk16 RotateChunk(Chunk16 chunk, string axis) {
-		Vector3 v3; Chunk16 chunk2 = new Chunk16();
-		chunk2.bs = new Int16[4096];
-		if(axis == "x") {
-			for(int i2 = 0; i2 < 4096; i2++) {
-				v3 = IntToVec3Chunk(i2);
-				chunk2.bs[Vec3ToIntChunk(new Vector3(v3.X, v3.Z, v3.Y))] = chunk.bs[i2];
-			}
-		}
-		if(axis == "z") {
-			for(int i2 = 0; i2 < 4096; i2++) {
-				v3 = IntToVec3Chunk(i2);
-				chunk2.bs[Vec3ToIntChunk(new Vector3(v3.Y, v3.X, v3.Z))] = chunk.bs[i2];
-			}
-		}
-		chunk2.shouldbesaved = chunk.shouldbesaved;
-		chunk2.changed2 = chunk.changed2;
-		chunk2.empty = chunk.empty;
-		chunk2.offset = chunk.offset;
-		chunk2.time = chunk.time;
-		chunk2.inited = chunk.inited;
-		chunk2.changed = chunk.changed;
-		return chunk2;
-	}
-	static Model I_N(Model model) { //Inverse normals
-		for(int i = 0; i < model.normals.Length; i++) {
-			model.normals[i] = -model.normals[i];
-		}
-		return model;
-	}
-	static int[] FlipBitmap(int[] bitmap) {
-		int[] bitmap2 = new int[256];
-		for(int i = 0; i < 15; i++) {
-			for(int i2 = 0; i2 < 15; i2++) {
-				bitmap2[i * 16 + (15 - i2)] = bitmap[i * 16 + i2];
-			}
-		}
-		for(int i = 0; i < 15; i++) {
-			for(int i2 = 0; i2 < 15; i2++) {
-				bitmap[(15 - i) * 16 + i2] = bitmap2[i * 16 + i2];
-			}
-		}
-		return bitmap;
-	}
-	static int[] GreedyMeshingMeshGen(int[] bitmap) {
-		List<int> quads = new List<int>();
-		int a = 1; int c = 0; int d = 0; int e = 0; //temp lens, good luck me on figuring what the fuck i was doing lol
-		bool b = false; //temp bool
-		for(int i = 0; i < 256; i++) { // 16x16 = 256 wow groundbreaking
-			a = 1; c = 0; d = 0; b = false;
-			if(bitmap[i] != 0) {
-				e = bitmap[i];
-				bitmap[i] = 0;
-				c = i;
-				quads.Capacity += 5;
-				quads.Add(i / 16); //flipped rn
-	
-				quads.Add(i % 16); //start
-								   //quads.Add(i / 16);
-				if(i % 16 == 15) {
-					while(b == false) {
-						d++;
-						if((d * 16) + c < 256 && bitmap[(d * 16) + c] == e) { bitmap[(d * 16) + c] = 0; } else { b = true; }
-					}
-					quads.Add(d);
-					quads.Add(1);
-					quads.Add(e);
-					continue;
-				}
-				bool b2 = true;
-				while(b2 == true) {
-					i++;
-					if(i % 16 != 0 && bitmap[i] == e) {
-						a++;
-						bitmap[i] = 0;
-					} else { i--; break; }
-				}
-				while(b == false) { //now the other thing y (or x)
+	return;
+}
+
+/*int[]*/ list4 GreedyMeshingMeshGen(list4 *bitmap) {
+	//List<int> quads = new List<int>();
+	list4 quads = list4_new(0);
+	int a = 1; int c = 0; int d = 0; int e = 0; //temp lens, good luck me on figuring what the fuck i was doing lol
+	//bool b = false; //temp bool
+	int b = 0;
+	for(int i = 0; i < 256; i++) { // 16x16 = 256 wow groundbreaking //this is why I write comments, truly.. so clever and funny I am
+		a = 1; c = 0; d = 0; b = 0;
+		if(bitmap.d[i] != 0) {
+			e = bitmap.d[i];
+			bitmap.d[i] = 0;
+			c = i;
+			//quads.Add(i / 16); //flipped rn
+			list4_add1(i / 16, &quads)
+
+			//quads.Add(i % 16); //start
+			list4_add1(i % 16, &quads)
+			if(i % 16 == 15) {
+				//while(b == false) {
+				for(;!b;) {
 					d++;
-					for(int i2 = 0; i2 < a; i2++) {
-						if((d * 16) + c + i2 < 256 && bitmap[(d * 16) + c + i2] == e) { } else { b = true; break; }
-					}
-					if(b == true) {
-						break;
-					}
-					for(int i2 = 0; i2 < a; i2++) {
-						bitmap[(d * 16) + c + i2] = 0;
-					}
+					if((d * 16) + c < 256 && bitmap.d[(d * 16) + c] == e) { bitmap.d[(d * 16) + c] = 0; } else { b = 1; }
 				}
-				quads.Add(d);
-	
-				quads.Add(a); //flipped rn
-				quads.Add(e);
+				//quads.Add(d); quads.Add(1); quads.Add(e);
+				list4_add1(d, &quads)
+				list4_add1(1, &quads)
+				list4_add1(e, &quads)
+				continue;
 			}
-		}
-		return quads.ToArray();
-	}
-	static (List<float>, List<uint>) UpdateLists(int[] quads, List<float> floats, List<uint> indices, Vector3 offset, Vector3 orientation, string rotation, int offset2) { //hell yeah some style here
-		//do the thing of quads(int[]) to actual tris
-		uint len = (uint)floats.Count; int len2 = indices.Count; //so the triangles go like //idk what tf i was thinking
-		floats.Capacity += (quads.Length / 5) * 4 * 7; //idk some conversion 7 floats per vert and 6 verts per tri, no actually we can do better 4
-		indices.Capacity += (quads.Length / 5) * 6; //2 tris per quad one tri = 3 points yk
-		for(int i = 0; i < quads.Length / 5; i++) { //runs once per quad
-			for(int i2 = 0; i2 < 4; i2++) {
-				if(rotation == "none") { //basically _ to _ (facing up)
-					if(i2 == 0) {
-						floats.Add(offset.X + quads[i * 5]); //pos.X
-						floats.Add(offset.Y + offset2); //pos.Y
-						floats.Add(offset.Z + quads[i * 5 + 1]); //pos.Z
-					} else if(i2 == 1) {
-						floats.Add(offset.X + quads[i * 5] + quads[i * 5 + 2]); //pos.X
-						floats.Add(offset.Y + offset2); //pos.Y
-						floats.Add(offset.Z + quads[i * 5 + 1]); //pos.Z
-					} else if(i2 == 2) {
-						floats.Add(offset.X + quads[i * 5]); //pos.X
-						floats.Add(offset.Y + offset2); //pos.Y
-						floats.Add(offset.Z + quads[i * 5 + 1] + quads[i * 5 + 3]); //pos.Z
-					} else if(i2 == 3) {
-						floats.Add(offset.X + quads[i * 5] + quads[i * 5 + 2]); //pos.X
-						floats.Add(offset.Y + offset2); //pos.Y
-						floats.Add(offset.Z + quads[i * 5 + 1] + quads[i * 5 + 3]); //pos.Z
-					}
-				} else if(rotation == "x") { //basically _ to | (facing left)
-					int p = quads[i * 5 + 1]; // * sin90 which is 1 //y'
-					int p2 = quads[i * 5 + 1] + quads[i * 5 + 3];   //y' but case 2
-					if(i2 == 0) {
-						floats.Add(offset.X + quads[i * 5]); //pos.X
-						floats.Add(offset.Y + p); //pos.Y
-						floats.Add(offset.Z + offset2); //pos.Z
-					} else if(i2 == 1) {
-						floats.Add(offset.X + quads[i * 5] + quads[i * 5 + 2]); //pos.X
-						floats.Add(offset.Y + p); //pos.Y
-						floats.Add(offset.Z + offset2); //pos.Z
-					} else if(i2 == 2) {
-						floats.Add(offset.X + quads[i * 5]); //pos.X
-						floats.Add(offset.Y + p2); //pos.Y
-						floats.Add(offset.Z + offset2); //pos.Z
-					} else if(i2 == 3) {
-						floats.Add(offset.X + quads[i * 5] + quads[i * 5 + 2]); //pos.X
-						floats.Add(offset.Y + p2); //pos.Y
-						floats.Add(offset.Z + offset2); //pos.Z
-					}
-				} else if(rotation == "z") { //basically _ to # (facing "camera")
-					if(i2 == 0) {
-						floats.Add(offset.X + offset2); //pos.X
-						floats.Add(offset.Y + quads[i * 5]); //pos.Y
-						floats.Add(offset.Z + quads[i * 5 + 1]); //pos.Z
-					} else if(i2 == 1) {
-						floats.Add(offset.X + offset2); //pos.X
-						floats.Add(offset.Y + quads[i * 5] + quads[i * 5 + 2]); //pos.Y
-						floats.Add(offset.Z + quads[i * 5 + 1]); //pos.Z
-					} else if(i2 == 2) {
-						floats.Add(offset.X + offset2); //pos.X
-						floats.Add(offset.Y + quads[i * 5]); //pos.Y
-						floats.Add(offset.Z + quads[i * 5 + 1] + quads[i * 5 + 3]); //pos.Z
-					} else if(i2 == 3) {
-						floats.Add(offset.X + offset2); //pos.X
-						floats.Add(offset.Y + quads[i * 5] + quads[i * 5 + 2]); //pos.Y
-						floats.Add(offset.Z + quads[i * 5 + 1] + quads[i * 5 + 3]); //pos.Z
-					}
-				} //hell yeah sin and cos when a = 90 is just 1 and 0 yayay, no matrix mult needed
-				floats.Add(orientation.X); //normals.X
-				floats.Add(orientation.Y); //normals.Y
-				floats.Add(orientation.Z); //normals.Z
-				floats.Add(quads[i * 5 + 4]);
+			//bool b2 = true;
+			int b2 = 1;
+			//while(b2 == 1) {
+			for(;b2;) {
+				i++;
+				if(i % 16 != 0 && bitmap.d[i] == e) {
+					a++;
+					bitmap.d[i] = 0;
+				} else { i--; break; }
 			}
-			//1
-			indices.Add((len / 7) + (uint)i * 4); //bottom right
-			indices.Add((len / 7) + (uint)i * 4 + 1); //top right
-			indices.Add((len / 7) + (uint)i * 4 + 2); //bottom left
-			//2
-			indices.Add((len / 7) + (uint)i * 4 + 2); //bottom left
-			indices.Add((len / 7) + (uint)i * 4 + 1); //top right
-			indices.Add((len / 7) + (uint)i * 4 + 3); //top left
+			//while(b == false) { //now the other thing y (or x)
+			for(;!b;) {
+				d++;
+				for(int i2 = 0; i2 < a; i2++) {
+					if((d * 16) + c + i2 < 256 && bitmap.d[(d * 16) + c + i2] == e) { } else { b = 1; break; }
+				}
+				if(b) {
+					break;
+				}
+				for(int i2 = 0; i2 < a; i2++) {
+					bitmap.d[(d * 16) + c + i2] = 0;
+				}
+			}
+			//quads.Add(d); quads.Add(a); //flipped rn quads.Add(e);
+			list4_add1(d, &quads)
+			list4_add1(a, &quads)
+			list4_add1(e, &quads)
 		}
-		return (floats, indices);
 	}
+	return quads;
+}
+
+//Do I really have to rewrite whatever this is lol //I don't even remember what this function does or why it's used //at least lists
+UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orientation, char rotation, int offset2) { //hell yeah some style here
+	//do the thing of quads(int[]) to actual tris //ahh so that's what this does ok
+	int len = floats->size; int len2 = indices->size; //so the triangles go like //idk what tf i was thinking
+
+	for(int i = 0; i < quads.size / 5; i++) { //runs once per quad
+		for(int i2 = 0; i2 < 4; i2++) {
+			if(rotation == 'n') { //basically _ to _ (facing up)
+				//if(i2 == 0) {
+				if(!i2) {
+					list4f_add1(offset.x + quads.d[i * 5], floats);
+					list4f_add1(offset.y + offset2, floats);
+					list4f_add1(offset.z + quads.d[i * 5 + 1], floats);
+				} else if(i2 == 1) { //cannot use if(i2) bc that is true for any non 0 int
+					list4f_add1(offset.x + quads.d[i * 5] + quads.d[i * 5 + 2], floats);
+					list4f_add1(offset.y + offset2, floats);
+					list4f_add1(offset.z + quads.d[i * 5 + 1], floats);
+				} else if(i2 == 2) {
+					list4f_add1(offset.x + quads.d[i * 5], floats);
+					list4f_add1(offset.y + offset2, floats);
+					list4f_add1(offset.z + quads.d[i * 5 + 1] + quads.d[i * 5 + 3], floats);
+				} else if(i2 == 3) {
+					list4f_add1(offset.x + quads.d[i * 5] + quads.d[i * 5 + 2], floats);
+					list4f_add1(offset.y + offset2, floats);
+					list4f_add1(offset.z + quads.d[i * 5 + 1] + quads.d[i * 5 + 3], floats);
+				}
+			} else if(rotation == 'x') { //basically _ to | (facing left)
+				int p = quads.d[i * 5 + 1]; // * sin90 which is 1 //y'
+				int p2 = quads.d[i * 5 + 1] + quads.d[i * 5 + 3];   //y' but case 2
+				if(!i2) {
+					list4f_add1(offset.x + quads.d[i * 5], floats);
+					list4f_add1(offset.y + p, floats);
+					list4f_add1(offset.z + offset2, floats);
+				} else if(i2 == 1) {
+					list4f_add1(offset.x + quads.d[i * 5] + quads[i * 5 + 2], floats);
+					list4f_add1(offset.y + p, floats);
+					list4f_add1(offset.z + offset2, floats);
+				} else if(i2 == 2) {
+					list4f_add1(offset.x + quads.d[i * 5], floats);
+					list4f_add1(offset.y + p2, floats);
+					list4f_add1(offset.z + offset2, floats);
+				} else if(i2 == 3) {
+					list4f_add1(offset.x + quads.d[i * 5] + quads[i * 5 + 2], floats);
+					list4f_add1(offset.y + p2, floats);
+					list4f_add1(offset.z + offset2, floats);
+				}
+			} else if(rotation == 'z') { //basically _ to # (facing "camera")
+				if(!i2) {
+					list4f_add1(offset.x + offset2, floats);
+					list4f_add1(offset.y + quads.d[i * 5], floats);
+					list4f_add1(offset.z + quads.d[i * 5 + 1], floats);
+				} else if(i2 == 1) {
+					list4f_add1(offset.x + offset2, floats);
+					list4f_add1(offset.y + quads.d[i * 5] + quads[i * 5 + 2], floats);
+					list4f_add1(offset.z + quads.d[i * 5 + 1], floats);
+				} else if(i2 == 2) {
+					list4f_add1(offset.x + offset2, floats);
+					list4f_add1(offset.y + quads.d[i * 5], floats);
+					list4f_add1(offset.z + quads.d[i * 5 + 1] + quads[i * 5 + 3], floats);
+				} else if(i2 == 3) {
+					list4f_add1(offset.x + offset2, floats);
+					list4f_add1(offset.y + quads.d[i * 5] + quads[i * 5 + 2], floats);
+					list4f_add1(offset.z + quads.d[i * 5 + 1] + quads[i * 5 + 3], floats);
+				}
+			} //hell yeah sin and cos when a = 90 is just 1 and 0 yayay, no matrix mult needed
+			list4f_add1(orientation.x, floats);
+			list4f_add1(orientation.y, floats);
+			list4f_add1(orientation.z, floats);
+			list4f_add1(quads[i * 5 + 4], floats);
+		}
+		//1
+		list4_add1((len / 7) + i * 4, indices); //bottom right
+		list4_add1((len / 7) + i * 4 + 1, indices); //top right
+		list4_add1((len / 7) + i * 4 + 2, indices); //bottom left
+		//2
+		list4_add1((len / 7) + i * 4 + 2, indices); //bottom left
+		list4_add1((len / 7) + i * 4 + 1, indices); //top right
+		list4_add1((len / 7) + i * 4 + 3, indices); //top left
+	}
+	return;
+}
+//ok it wasn't that bad bc Vim is great :D
+
+//Oh this function...
+//You know what I'll just take a break :3
+//Half this code is just absolutlely useless comments lolol
+
 	static (float[], uint[]) ChunkToArrs(Chunk16[] chunks, Model[] models, int index) { //this is a nightmare, why do i do this?
 		Model model = models[4];
 		if(chunks[index].inited == true && chunks[index].empty == false) { //but there is no other choice, to obtain speeeeed!
@@ -734,6 +545,7 @@ Chunk16 GenChunk16(vec3 offset, int b) {
 		}
 		return(new float[0], new uint[0]);
 	}
+
 	static (float[], uint[]) ChunksToFloatArr(Chunk16[] chunks, Model[] models, float[] vertices, uint[] indices, float[][] verts) {
 		float[][] vertices2 = new float[chunks.Length][]; //init arrs
 		for(int i = 0; i < chunks.Length; i++) {
