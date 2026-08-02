@@ -137,6 +137,45 @@ void list4f_print(list4f *h) {
 }
 
 typedef struct {
+	int capacity;
+	int size;
+	void **d;
+} list8;
+
+list8 list8_new(int size) {
+	int capacity = size * 2;
+	if(capacity == 0) { capacity = 1; }
+	list8 a;
+	a.size = size; a.capacity = capacity; a.d = malloc(capacity * 8);
+	return a;
+}
+
+void list8_changesize(list8 *a, int capacity) {
+	void **b = realloc(a->d, capacity * 8);
+	a->d = b; a-> capacity = capacity;
+	return;
+}
+
+void list8_add(void *a, int size, list8 *l) { //size == size of a in bytes //a == thing to add to list(same type as list)
+	int amount = size / 8;
+	for(;l->size + amount > l->capacity;) { //loop lol
+		list8_changesize(l, l->capacity * 2);
+	}
+	memcpy(l->d + l->size, a, size);
+	l->size += amount;
+	return;
+}
+
+void list8_add1(void *a, list8 *l) {
+	for(;l->size == l-> capacity;) {
+		list8_changesize(l, l->capacity * 2);
+	}
+	memcpy(l->d + l->size, &a, 8);
+	l->size += 1;
+	return;
+}
+
+typedef struct {
 	int x; int y; int z;
 } vec3;
 
@@ -154,6 +193,14 @@ vec3 vec3_add(vec3 a, vec3 b) {
 	return c;
 }
 
+vec3 vec3_mult(vec3 a, int b) {
+	vec3 c;
+	c.x = a.x * b;
+	c.y = a.y * b;
+	c.z = a.z * b;
+	return c;
+}
+
 typedef struct {
 	int x; int y; int z; int w;
 } vec4;
@@ -162,14 +209,6 @@ vec4 vec4_new(float x, float y, float z, float w) {
 	vec4 a;
 	a.x = x; a.y = y; a.z = z; a.w = w;
 	return a;
-}
-
-vec3 vec3_add(vec3 a, vec3 b) {
-	vec3 c;
-	c.x = a.x + b.x;
-	c.y = a.y + b.y;
-	c.z = a.z + b.z;
-	return c;
 }
 
 void drawlisttoconsole(list *l, int width, int height) {

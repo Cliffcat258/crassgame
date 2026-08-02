@@ -10,7 +10,6 @@ typedef struct {
 	int empty; //if chunk only contains air
 	/*int[4096]*/list4 bs; vec3 offset;
 	int shouldbesaved;
-	float time;
 } Chunk16;
 
 typedef struct {
@@ -80,9 +79,9 @@ Chunk16 GenChunk16(vec3 offset, int b) {
 
 /*bool*/int InChunk(vec3 offset) {
 	if(offset.x < 0 || offset.x >= 16 || offset.y < 0 || offset.y >= 16 || offset.z < 0 || offset.z >= 16) {
-		return /*false*/ 0;
+		return /*0*/ 0;
 	}
-	return /*true*/ 1;
+	return /*1*/ 1;
 }
 /*(List<float>, List<uint>)*/void AddModelToArrs(list4f *floats, list4 *indices, vec3 offset, Model *model) { //void bc it manipulates the memory so doesn't need to return anything
 	//if(model->normals == null) { //idk how to check this rn
@@ -159,7 +158,7 @@ Chunk16* GetNeighbouringChunk(vec3 offset, /*Chunk16[]*/list chunks, int index) 
 			return chunks[i];
 		}
 	}
-	c.time = 69; //why exactly do I need a time variable and it to be set to 69? idk but it will stay this way lol
+	//c.time = 69; //why exactly do I need a time variable and it to be set to 69? idk but it will stay this way lol //NO THIS IS NOT STAYING LIKE THIS IT BREAKS THINGS AND IS FUCKING CONFUSING anyways
 	return &c;
 }
 
@@ -231,8 +230,8 @@ Chunk16 RotateChunk(Chunk16 *chunk, char axis) {
 			chunk2.bs[Vec3ToIntChunk(vec3_new(v3.y, v3.x, v3.z))] = chunk->bs[i2];
 		}
 	}
-	chunk2.shouldbesaved = chunk->shouldbesaved; chunk2.changed2 = chunk->changed2; chunk2.empty = chunk->empty; chunk2.offset = chunk->offset; chunk2.time = chunk->time; chunk2.inited = chunk->inited; chunk2.changed = chunk->changed;
-	return chunk2;
+	chunk2.shouldbesaved = chunk->shouldbesaved; chunk2.changed2 = chunk->changed2; chunk2.empty = chunk->empty; chunk2.offset = chunk->offset; chunk2.inited = chunk->inited; chunk2.changed = chunk->changed;
+	return &chunk2;
 }
 
 void FlipBitmap(list4 *bitmap) {
@@ -254,7 +253,7 @@ void FlipBitmap(list4 *bitmap) {
 	//List<int> quads = new List<int>();
 	list4 quads = list4_new(0);
 	int a = 1; int c = 0; int d = 0; int e = 0; //temp lens, good luck me on figuring what the fuck i was doing lol
-	//bool b = false; //temp bool
+	//bool b = 0; //temp bool
 	int b = 0;
 	for(int i = 0; i < 256; i++) { // 16x16 = 256 wow groundbreaking //this is why I write comments, truly.. so clever and funny I am
 		a = 1; c = 0; d = 0; b = 0;
@@ -268,7 +267,7 @@ void FlipBitmap(list4 *bitmap) {
 			//quads.Add(i % 16); //start
 			list4_add1(i % 16, &quads)
 			if(i % 16 == 15) {
-				//while(b == false) {
+				//while(b == 0) {
 				for(;!b;) {
 					d++;
 					if((d * 16) + c < 256 && bitmap.d[(d * 16) + c] == e) { bitmap.d[(d * 16) + c] = 0; } else { b = 1; }
@@ -279,7 +278,7 @@ void FlipBitmap(list4 *bitmap) {
 				list4_add1(e, &quads)
 				continue;
 			}
-			//bool b2 = true;
+			//bool b2 = 1;
 			int b2 = 1;
 			//while(b2 == 1) {
 			for(;b2;) {
@@ -289,7 +288,7 @@ void FlipBitmap(list4 *bitmap) {
 					bitmap.d[i] = 0;
 				} else { i--; break; }
 			}
-			//while(b == false) { //now the other thing y (or x)
+			//while(b == 0) { //now the other thing y (or x)
 			for(;!b;) {
 				d++;
 				for(int i2 = 0; i2 < a; i2++) {
@@ -312,7 +311,7 @@ void FlipBitmap(list4 *bitmap) {
 }
 
 //Do I really have to rewrite whatever this is lol //I don't even remember what this function does or why it's used //at least lists
-UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orientation, char rotation, int offset2) { //hell yeah some style here
+UpdateLists(list4 *quads, list4f *floats, list4 *indices, vec3 offset, vec3 orientation, char rotation, int offset2) { //hell yeah some style here
 	//do the thing of quads(int[]) to actual tris //ahh so that's what this does ok
 	int len = floats->size; int len2 = indices->size; //so the triangles go like //idk what tf i was thinking
 
@@ -324,7 +323,7 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 					list4f_add1(offset.x + quads.d[i * 5], floats);
 					list4f_add1(offset.y + offset2, floats);
 					list4f_add1(offset.z + quads.d[i * 5 + 1], floats);
-				} else if(i2 == 1) { //cannot use if(i2) bc that is true for any non 0 int
+				} else if(i2 == 1) { //cannot use if(i2) bc that is 1 for any non 0 int
 					list4f_add1(offset.x + quads.d[i * 5] + quads.d[i * 5 + 2], floats);
 					list4f_add1(offset.y + offset2, floats);
 					list4f_add1(offset.z + quads.d[i * 5 + 1], floats);
@@ -398,153 +397,170 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 //You know what I'll just take a break :3
 //Half this code is just absolutlely useless comments lolol
 
-	static (float[], uint[]) ChunkToArrs(Chunk16[] chunks, Model[] models, int index) { //this is a nightmare, why do i do this?
-		Model model = models[4];
-		if(chunks[index].inited == true && chunks[index].empty == false) { //but there is no other choice, to obtain speeeeed!
-			Chunk16 chunk = chunks[index]; //ok but is like this line wrong or wtf //but just maybe, this is not the goal after all
-			Chunk16 chunk2 = RotateChunk(chunk, "x");
-			Chunk16 chunk3 = RotateChunk(chunk, "z");
-			List<float> floats = new List<float>(); //maybe I just want to write my story in code comments and need some code to comment
-			List<uint> indices = new List<uint>(); //whatever i guess i'll just get back to this nightmare of a code
-			Chunk16[] chunks2 = new Chunk16[6]; //bc why not
-			chunks2[3] = GetNeighbouringChunk(new Vector3 { X = 0, Y = -1, Z = 0 }, chunks, index);
-			chunks2[1] = RotateChunk(GetNeighbouringChunk(new Vector3 { X = 0, Y = 0, Z = -1 }, chunks, index), "x");
-			chunks2[5] = RotateChunk(GetNeighbouringChunk(new Vector3 { X = -1, Y = 0, Z = 0 }, chunks, index), "z");
-	
-			int[] quads = new int[0]; //honestly this wasn't that bad lol
-			int[] bitmap = new int[256];
-			Vector3 offset = chunk.offset;
-			bool a;
-			//bottom face
-			//first layer with edge case
-			a = false;
-			for(int i2 = 0; i2 < 256; i2++) {
-				if(chunks2[3].time != 69) {
-					if(chunks2[3].bs[i2 * 16 + 15] == 0 && chunk.bs[i2 * 16] != 0) {
-						bitmap[i2] = chunk.bs[i2 * 16]; a = true;
-					} else { bitmap[i2] = 0; }
-				}
-			}
-			if(a) { quads = GreedyMeshingMeshGen(bitmap); (floats, indices) = UpdateLists(quads, floats, indices, offset * 16, new Vector3(0, 1, 0), "none", 0); }
-			//other layers
-			for(int i = 0; i < 15; i++) { //loops through all layers and creates bitmap for the down facing things
-				a = false;
-				for(int i2 = 0; i2 < 256; i2++) {
-					if(chunk.bs[i2 * 16 + i] == 0 && chunk.bs[i2 * 16 + i + 1] != 0) {
-						bitmap[i2] = chunk.bs[i2 * 16 + i + 1]; a = true;
-					} else { bitmap[i2] = 0; }
-				}
-				if(a) { quads = GreedyMeshingMeshGen(bitmap); (floats, indices) = UpdateLists(quads, floats, indices, offset * 16, new Vector3(0, 1, 0), "none", i + 1); }
-			}
-	
-	
-			//top face
-			//first layer with edge case
-			a = false;
-			for(int i2 = 0; i2 < 256; i2++) {
-				if(chunks2[3].inited && chunks2[3].bs[i2 * 16 + 15] != 0 && chunk.bs[i2 * 16] == 0) {
-					bitmap[i2] = chunks2[3].bs[i2 * 16 + 15]; a = true;
-				} else { bitmap[i2] = 0; }
-			}
-			if(a) { quads = GreedyMeshingMeshGen(bitmap); (floats, indices) = UpdateLists(quads, floats, indices, offset * 16, new Vector3(0, -1, 0), "none", 0); }
-			//other layers
-			for(int i = 0; i < 15; i++) { //loops through all layers and creates bitmap for the down facing things
-				a = false;
-				for(int i2 = 0; i2 < 256; i2++) {
-					if(chunk.bs[i2 * 16 + i] != 0 && chunk.bs[i2 * 16 + i + 1] == 0) {
-						bitmap[i2] = chunk.bs[i2 * 16 + i]; a = true;
-					} else { bitmap[i2] = 0; }
-				}
-				if(a) { quads = GreedyMeshingMeshGen(bitmap); (floats, indices) = UpdateLists(quads, floats, indices, offset * 16, new Vector3(0, -1, 0), "none", i + 1); }
-			}
-	
-			//right face // | to _ (counterclockwise rotation) (so down is actually left)
-			//first layer with edge case //wrong rn //now right :)
-			a = false;
-			for(int i2 = 0; i2 < 256; i2++) {
-				if(chunks2[1].inited && chunks2[1].bs[i2 * 16 + 15] != 0 && chunk2.bs[i2 * 16] == 0) {
-					bitmap[i2] = chunks2[1].bs[i2 * 16 + 15]; a = true;
-				} else { bitmap[i2] = 0; }
-			}
-			if(a) { quads = GreedyMeshingMeshGen(bitmap); (floats, indices) = UpdateLists(quads, floats, indices, offset * 16, new Vector3(0, 0, 1), "x", 0); }
-			//other layers
-			for(int i = 0; i < 15; i++) { //loops through all layers and creates bitmap for the down facing things
-				a = false;
-				for(int i2 = 0; i2 < 256; i2++) {
-					if(chunk2.bs[i2 * 16 + i] != 0 && chunk2.bs[i2 * 16 + i + 1] == 0) {
-						bitmap[i2] = chunk2.bs[i2 * 16 + i]; a = true;
-					} else { bitmap[i2] = 0; }
-				}
-				if(a) { quads = GreedyMeshingMeshGen(bitmap); (floats, indices) = UpdateLists(quads, floats, indices, offset * 16, new Vector3(0, 0, 1), "x", i + 1); }
-			}
-	
-			//left face
-			//first layer with edge case
-			a = false;
-			for(int i2 = 0; i2 < 256; i2++) {
-				if(chunks2[1].inited && chunks2[1].bs[i2 * 16 + 15] == 0 && chunk2.bs[i2 * 16] != 0) {
-					bitmap[i2] = chunk2.bs[i2 * 16]; a = true;
-				} else { bitmap[i2] = 0; }
-			}
-			if(a) { quads = GreedyMeshingMeshGen(bitmap); (floats, indices) = UpdateLists(quads, floats, indices, offset * 16, new Vector3(0, 0, -1), "x", 0); }
-			//other layers
-			for(int i = 0; i < 15; i++) { //loops through all layers and creates bitmap for the down facing things
-				a = false;
-				for(int i2 = 0; i2 < 256; i2++) {
-					if(chunk2.bs[i2 * 16 + i] == 0 && chunk2.bs[i2 * 16 + i + 1] != 0) {
-						bitmap[i2] = chunk2.bs[i2 * 16 + i + 1]; a = true;
-					} else { bitmap[i2] = 0; }
-				}
-				if(a) { quads = GreedyMeshingMeshGen(bitmap); (floats, indices) = UpdateLists(quads, floats, indices, offset * 16, new Vector3(0, 0, -1), "x", i + 1); }
-			}
-	
-			//front face (or back idk)
-			//first layer with edge case //wrong rn //right
-			a = false;
-			for(int i2 = 0; i2 < 256; i2++) {
-				if(chunks2[5].bs[i2 * 16 + 15] != 0 && chunk3.bs[i2 * 16] == 0) {
-					bitmap[i2] = chunks2[5].bs[i2 * 16 + 15]; a = true;
-				} else { bitmap[i2] = 0; }
-			}
-			if(a) { quads = GreedyMeshingMeshGen(bitmap); (floats, indices) = UpdateLists(quads, floats, indices, offset * 16, new Vector3(1, 0, 0), "z", 0); }
-			//other layers
-			for(int i = 0; i < 15; i++) { //loops through all layers and creates bitmap for the down facing things
-				a = false;
-				for(int i2 = 0; i2 < 256; i2++) {
-					if(chunk3.bs[i2 * 16 + i] != 0 && chunk3.bs[i2 * 16 + i + 1] == 0) {
-						bitmap[i2] = chunk3.bs[i2 * 16 + i]; a = true;
-					} else { bitmap[i2] = 0; }
-				}
-				if(a) { quads = GreedyMeshingMeshGen(bitmap); (floats, indices) = UpdateLists(quads, floats, indices, offset * 16, new Vector3(1, 0, 0), "z", i + 1); }
-			}
-	
-			//back face (or front idk)
-			//first layer with edge case //wrong rn
-			a = false;
-			for(int i2 = 0; i2 < 256; i2++) {
-				if(chunks2[5].bs[i2 * 16 + 15] == 0 && chunk3.bs[i2 * 16] != 0) {
-					bitmap[i2] = chunk3.bs[i2 * 16]; a = true;
-				} else { bitmap[i2] = 0; }
-			}
-			if(a) { quads = GreedyMeshingMeshGen(bitmap); (floats, indices) = UpdateLists(quads, floats, indices, offset * 16, new Vector3(-1, 0, 0), "z", 0); }
-			//other layers
-			for(int i = 0; i < 15; i++) { //loops through all layers and creates bitmap for the down facing things
-				a = false;
-				for(int i2 = 0; i2 < 256; i2++) {
-					if(chunk3.bs[i2 * 16 + i] == 0 && chunk3.bs[i2 * 16 + i + 1] != 0) {
-						bitmap[i2] = chunk3.bs[i2 * 16 + i + 1]; a = true;
-					} else { bitmap[i2] = 0; }
-				}
-				if(a) { quads = GreedyMeshingMeshGen(bitmap); (floats, indices) = UpdateLists(quads, floats, indices, offset * 16, new Vector3(-1, 0, 0), "z", i + 1); }
-			}
-	
-			for(int i = 0; i < floats.Count; i++) {
-				floats[i] = (floats[i] - 0.5f) * 2;
-			}
-			return (floats.ToArray(), indices.ToArray());
+/*(float[], uint[])*/list8 ChunkToArrs(/*Chunk16[]*/list8 *chunks, /*Model[]*/list8 *models, int index) { //this is a nightmare, why do i do this?
+	//Model model = models[4];
+	Model *model = (Model *)models->d[4]; //yes switching to C was definitely the right choice lolol, however this makes sense actually
+	if(((Chunk16 *)chunks->d[index])->inited && !((Chunk16 *)chunks->d[index])->empty) { //but there is no other choice, to obtain speeeeed! //two different stories intersecting lolol //also this line is pretty cursed but totally normal C code like..
+		Chunk16 *chunk = (Chunk16 *)chunks->d[index]; //ok but is like this line wrong or wtf //but just maybe, this is not the goal after all
+		Chunk16 chunk2 = RotateChunk(chunk, "x");
+		Chunk16 chunk3 = RotateChunk(chunk, "z");
+		//List<float> floats = new List<float>(); //maybe I just want to write my story in code comments and need some code to comment
+		list4f floats = list4f_new(0);
+		//List<uint> indices = new List<uint>(); //whatever i guess i'll just get back to this nightmare of a code
+		list4 indices = list4_new(0);
+		list8 flindiceso = list8_new(0); //works as tuple of floats and indices, very funne name
+		list8 *flindices = &flindiceso;
+		list8_add1(&floats, flindices); list8_add1(&indices, flindices); //field of green, or whatever comment color, green is just cool
+		//Chunk16[] chunks2 = new Chunk16[6]; //bc why not
+		Chunk16* chunks2[6];
+		//chunks2[3] = GetNeighbouringChunk(new Vector3 { X = 0, Y = -1, Z = 0 }, chunks, index);
+		chunks2[3] = GetNeighbouringChunk(vec3_new(0,-1,0), chunks, index); //TODO figure out if I shouldn't be passing 'chunks' everywhere, bc it is just a list8 of the existing chunks.
+		//chunks2[1] = RotateChunk(GetNeighbouringChunk(new Vector3 { X = 0, Y = 0, Z = -1 }, chunks, index), "x");
+		chunks2[1] = GetNeighbouringChunk(vec3_new(0,0,-1), chunks, index);
+		//chunks2[5] = RotateChunk(GetNeighbouringChunk(new Vector3 { X = -1, Y = 0, Z = 0 }, chunks, index), "z"); //honestly what was I doing here... it work(s/ed) I suppose
+		chunks2[5] = GetNeighbouringChunk(vec3_new(-1,0,0), chunks, index);
+		//so many comments here, not gonna clean it up though lolol
+		//this is so bad coding etiquette, however I don't care bc this is not how to code, this is art.
+
+		//int[] quads = new int[0]; //honestly this wasn't that bad lol
+		list4 quads = list4_new(0);
+		//int[] bitmap = new int[256];
+		int bitmap[256];
+		//Vector3 offset = chunk.offset;
+		vec3 offset = chunk->offset;
+		//bool a;
+		int a;
+		//bottom face
+		//first layer with edge case
+		a = 0;
+		for(int i2 = 0; i2 < 256; i2++) {
+			//if(chunks2[3].time != 69) { //WHAT THE FUCK IS TIME AND WHY IS IT 69 I HATE YOU SO MUCH WHAT IS HONESTLY WRONG WITH YOU, fix: just comment out the line
+			if(chunks2[3]->bs[i2 * 16 + 15] == 0 && chunk->bs[i2 * 16] != 0) {
+				bitmap[i2] = chunk.bs[i2 * 16]; a = 1;
+			} else { bitmap[i2] = 0; }
+			//}
 		}
-		return(new float[0], new uint[0]);
+		if(a) { quads = GreedyMeshingMeshGen(bitmap); /*(floats, indices)*/flindices = UpdateLists(quads, floats, indices, vec3_mult(offset, 16), vec3_new(0,1,0), 'n', 0); }
+		//other layers
+		for(int i = 0; i < 15; i++) { //loops through all layers and creates bitmap for the down facing things
+			a = 0;
+			for(int i2 = 0; i2 < 256; i2++) {
+				if(chunk->bs[i2 * 16 + i] == 0 && chunk->bs[i2 * 16 + i + 1] != 0) {
+					bitmap[i2] = chunk->bs[i2 * 16 + i + 1]; a = 1;
+				} else { bitmap[i2] = 0; }
+			}
+			if(a) { quads = GreedyMeshingMeshGen(bitmap); /*(floats, indices)*/flindices = UpdateLists(quads, floats, indices, vec3_mult(offset, 16), vec3_new(0,1,0), 'n', i + 1); }
+		}
+
+
+		//top face
+		//first layer with edge case
+		a = 0;
+		for(int i2 = 0; i2 < 256; i2++) {
+			if(chunks2[3]->inited && chunks2[3]->bs[i2 * 16 + 15] != 0 && chunk->bs[i2 * 16] == 0) {
+				bitmap[i2] = chunks2[3]->bs[i2 * 16 + 15]; a = 1;
+			} else { bitmap[i2] = 0; }
+		}
+		if(a) { quads = GreedyMeshingMeshGen(bitmap); flindices = UpdateLists(quads, floats, indices, vec3_mult(offset, 16), vec3_new(0,-1,0), 'n', 0); }
+		//other layers
+		for(int i = 0; i < 15; i++) { //loops through all layers and creates bitmap for the down facing things
+			a = 0;
+			for(int i2 = 0; i2 < 256; i2++) {
+				if(chunk->bs[i2 * 16 + i] != 0 && chunk->bs[i2 * 16 + i + 1] == 0) {
+					bitmap[i2] = chunk.bs[i2 * 16 + i]; a = 1;
+				} else { bitmap[i2] = 0; }
+			}
+			if(a) { quads = GreedyMeshingMeshGen(bitmap); flindices = UpdateLists(quads, floats, indices, vec3_mult(offset, 16), vec3_new(0,-1,0), 'n', i + 1); }
+		}
+
+		//right face // | to _ (counterclockwise rotation) (so down is actually left)
+		//first layer with edge case //wrong rn //now right :)
+		a = 0;
+		for(int i2 = 0; i2 < 256; i2++) {
+			if(chunks2[1]->inited && chunks2[1]->bs[i2 * 16 + 15] != 0 && chunk2->bs[i2 * 16] == 0) {
+				bitmap[i2] = chunks2[1]->bs[i2 * 16 + 15]; a = 1;
+			} else { bitmap[i2] = 0; }
+		}
+		if(a) { quads = GreedyMeshingMeshGen(bitmap); flindices = UpdateLists(quads, floats, indices, vec3_mult(offset, 16), vec3_new(0,0,1), 'x', 0); }
+		//other layers
+		for(int i = 0; i < 15; i++) { //loops through all layers and creates bitmap for the down facing things
+			a = 0;
+			for(int i2 = 0; i2 < 256; i2++) {
+				if(chunk2->bs[i2 * 16 + i] != 0 && chunk2->bs[i2 * 16 + i + 1] == 0) {
+					bitmap[i2] = chunk2->bs[i2 * 16 + i]; a = 1;
+				} else { bitmap[i2] = 0; }
+			}
+			if(a) { quads = GreedyMeshingMeshGen(bitmap); flindices = UpdateLists(quads, floats, indices, vec3_mult(offset, 16), vec3_new(0,0,1), 'x', i + 1); }
+		}
+
+		//left face
+		//first layer with edge case
+		a = 0;
+		for(int i2 = 0; i2 < 256; i2++) {
+			if(chunks2[1]->inited && chunks2[1]->bs[i2 * 16 + 15] == 0 && chunk2->bs[i2 * 16] != 0) {
+				bitmap[i2] = chunk2->bs[i2 * 16]; a = 1;
+			} else { bitmap[i2] = 0; }
+		}
+		if(a) { quads = GreedyMeshingMeshGen(bitmap); flindices = UpdateLists(quads, floats, indices, vec3_mult(offset, 16), vec3_new(0,0,-1), 'x', 0); }
+		//other layers
+		for(int i = 0; i < 15; i++) { //loops through all layers and creates bitmap for the down facing things
+			a = 0;
+			for(int i2 = 0; i2 < 256; i2++) {
+				if(chunk2->bs[i2 * 16 + i] == 0 && chunk2->bs[i2 * 16 + i + 1] != 0) {
+					bitmap[i2] = chunk2->bs[i2 * 16 + i + 1]; a = 1;
+				} else { bitmap[i2] = 0; }
+			}
+			if(a) { quads = GreedyMeshingMeshGen(bitmap); flindices = UpdateLists(quads, floats, indices, vec3_mult(offset, 16), vec3_new(0,0,-1), 'x', i + 1); }
+		}
+
+		//front face (or back idk)
+		//first layer with edge case //wrong rn //right
+		a = 0;
+		for(int i2 = 0; i2 < 256; i2++) {
+			if(chunks2[5]->bs[i2 * 16 + 15] != 0 && chunk3->bs[i2 * 16] == 0) {
+				bitmap[i2] = chunks2[5]->bs[i2 * 16 + 15]; a = 1;
+			} else { bitmap[i2] = 0; }
+		}
+		if(a) { quads = GreedyMeshingMeshGen(bitmap); flindices = UpdateLists(quads, floats, indices, vec3_mult(offset, 16), vec3_new(1,0,0), 'z', 0); }
+		//other layers
+		for(int i = 0; i < 15; i++) { //loops through all layers and creates bitmap for the down facing things
+			a = 0;
+			for(int i2 = 0; i2 < 256; i2++) {
+				if(chunk3->bs[i2 * 16 + i] != 0 && chunk3->bs[i2 * 16 + i + 1] == 0) {
+					bitmap[i2] = chunk3->bs[i2 * 16 + i]; a = 1;
+				} else { bitmap[i2] = 0; }
+			}
+			if(a) { quads = GreedyMeshingMeshGen(bitmap); flindices = UpdateLists(quads, floats, indices, vec3_mult(offset, 16), vec3_new(1,0,0), 'z', i + 1); }
+		}
+
+		//back face (or front idk)
+		//first layer with edge case //wrong rn
+		a = 0;
+		for(int i2 = 0; i2 < 256; i2++) {
+			if(chunks2[5]->bs[i2 * 16 + 15] == 0 && chunk3->bs[i2 * 16] != 0) {
+				bitmap[i2] = chunk3->bs[i2 * 16]; a = 1;
+			} else { bitmap[i2] = 0; }
+		}
+		if(a) { quads = GreedyMeshingMeshGen(bitmap); flindices = UpdateLists(quads, floats, indices, vec3_mult(offset, 16), vec3_new(-1,0,0), 'z', 0); }
+		//other layers
+		for(int i = 0; i < 15; i++) { //loops through all layers and creates bitmap for the down facing things
+			a = 0;
+			for(int i2 = 0; i2 < 256; i2++) {
+				if(chunk3->bs[i2 * 16 + i] == 0 && chunk3->bs[i2 * 16 + i + 1] != 0) {
+					bitmap[i2] = chunk3->bs[i2 * 16 + i + 1]; a = 1;
+				} else { bitmap[i2] = 0; }
+			}
+			if(a) { quads = GreedyMeshingMeshGen(bitmap); flindices = UpdateLists(quads, floats, indices, vec3_mult(offset, 16), vec3_new(-1,0,0), 'z', i + 1); }
+		}
+
+		for(int i = 0; i < floats.size; i++) {
+			//floats[i] = (floats[i] - 0.5f) * 2;
+			((list4f *)flindices->d[0])->d[i] = ( ((list4f *)flindices->d[0])->d[i] - 0.5 ) * 2;
+		}
+		return (floats.ToArray(), indices.ToArray());
 	}
+	return(new float[0], new uint[0]);
+}
 
 	static (float[], uint[]) ChunksToFloatArr(Chunk16[] chunks, Model[] models, float[] vertices, uint[] indices, float[][] verts) {
 		float[][] vertices2 = new float[chunks.Length][]; //init arrs
@@ -557,17 +573,17 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 		}
 		for(int i = 0; i < chunks.Length; i++) //chunks to arrs
 		{
-			if(chunks[i].inited == true) {
-				if(chunks[i].changed == false && verts[i].Length == 0) {
+			if(chunks[i].inited == 1) {
+				if(chunks[i].changed == 0 && verts[i].Length == 0) {
 					vertices2[i] = verts[i];
 					indices2[i] = new uint[0];
 				} else {
 					(vertices2[i], indices2[i]) = ChunkToArrs(chunks, models, i);
 					verts[i] = vertices2[i];
-					chunks[i].changed = false;
+					chunks[i].changed = 0;
 				}
 			}
-			chunks[i].changed = true;
+			chunks[i].changed = 1;
 		}
 	
 		(vertices, indices) = MergeFloatArrs(vertices2, indices2); // merge the arrs
@@ -577,11 +593,11 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 	
 		for(int i = 0; i < chunks.Length; i++) //chunks to arrs
 		{
-			if(chunks[i].inited == true) {
-				if(chunks[i].changed == true) { // if chunk has been changed
+			if(chunks[i].inited == 1) {
+				if(chunks[i].changed == 1) { // if chunk has been changed
 					(verts[i], indices[i]) = ChunkToArrs(chunks, models, i);
 					verts[i] = verts[i];
-					chunks[i].changed = false;
+					chunks[i].changed = 0;
 				}
 			}
 		}
@@ -590,8 +606,8 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 	static bool ChunkInChunkdist(Vector3 pos, int chunkdist, Vector3 offset) {
 		Vector3 pos2 = new Vector3(MathF.Floor(pos.X / 64), MathF.Floor(pos.Y / 64), MathF.Floor(pos.Z / 64));
 		if(MathF.Abs(pos2.X - offset.X) > chunkdist || MathF.Abs(pos2.Z - offset.Z) > chunkdist) {
-			return false;
-		} else { return true; }
+			return 0;
+		} else { return 1; }
 	}
 	Vector3[] FindMissingChunksInRange() {
 		int g = 0; Vector3 offset = new Vector3(MathF.Round(camerac.position.X / 64), MathF.Round(camerac.position.Y / 64), MathF.Round(camerac.position.Z / 64));
@@ -612,13 +628,13 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 		return vecs.ToArray();
 	}
 	bool LoadUnloadChunks2() {
-		bool a = false;
+		bool a = 0;
 		for(int i = 0; i < chunksglobal.Length; i++) {
 			if(!ChunkInChunkdist(camerac.position, chunkdist, chunksglobal[i].offset)) {
 				bool b = chunksglobal[i].inited;
-				chunksglobal[i].inited = false; chunksglobal[i].empty = true;
+				chunksglobal[i].inited = 0; chunksglobal[i].empty = 1;
 				if(b != chunksglobal[i].inited) {
-					a = true;
+					a = 1;
 				}
 				if(chunksglobal[i].shouldbesaved && b) {
 					SaveChunk(i);
@@ -642,9 +658,9 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 						chunksglobal[i].offset = vec3s[g];
 					}
 					offsetdict.TryAdd(vec3s[g], i);
-					chunksglobal[i].inited = true; chunksglobal[i].empty = false; chunksglobal[i].changed = true;
-					g += 1; chunksglobal[i].time = (float)time;
-					a = true;
+					chunksglobal[i].inited = 1; chunksglobal[i].empty = 0; chunksglobal[i].changed = 1;
+					g += 1; //chunksglobal[i].time = (float)time;
+					a = 1;
 				}
 			}
 		}
@@ -702,7 +718,7 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 		return;
 	}
 	bool OnUpdatePhysics() {
-		bool change = false;
+		bool change = 0;
 		change = LoadUnloadChunks2();
 		return change;
 	}
@@ -725,9 +741,9 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 	}
 	bool InChunk2(Vector3 offset) {
 		if(offset.X < 0 || offset.X >= 16 || offset.Y < 0 || offset.Y >= 16 || offset.Z < 0 || offset.Z >= 16) {
-			return false;
+			return 0;
 		}
-		return true;
+		return 1;
 	}
 	int GetSign(float a) {
 		if(a < 0) {
@@ -767,14 +783,14 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 		}
 	
 		byte[] bytes = new byte[4096];
-		if(chunksglobal[i].shouldbesaved == true) {
-			Vector3 v = chunksglobal[i].offset; bool b = false;
+		if(chunksglobal[i].shouldbesaved == 1) {
+			Vector3 v = chunksglobal[i].offset; bool b = 0;
 			for(int i2 = 0; i2 < strings.Length; i2++) {
 				if(strings[i2] == (string)(v.X + " " + v.Y + " " + v.Z)) {
-					b = true;
+					b = 1;
 				}
 			}
-			if(b == false) {
+			if(b == 0) {
 				sr.WriteLine(v.X + " " + v.Y + " " + v.Z);
 			}
 			var sr2 = File.OpenWrite(Directory.GetCurrentDirectory() + "/stuff/chunks/c" + v.X + " " + v.Y + " " + v.Z + ".bin");
@@ -807,14 +823,14 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 		}
 		for(int i = 0; i < chunksglobal.Length; i++) {
 			byte[] bytes = new byte[4096];
-			if(chunksglobal[i].shouldbesaved == true) {
-				Vector3 v = chunksglobal[i].offset; bool b = false;
+			if(chunksglobal[i].shouldbesaved == 1) {
+				Vector3 v = chunksglobal[i].offset; bool b = 0;
 				for(int i2 = 0; i2 < strings.Length; i2++) {
 					if(strings[i2] == (string)(v.X + " " + v.Y + " " + v.Z)) {
-						b = true;
+						b = 1;
 					}
 				}
-				if(b == false) {
+				if(b == 0) {
 					sr.WriteLine(v.X + " " + v.Y + " " + v.Z);
 				}
 				var sr2 = File.OpenWrite(Directory.GetCurrentDirectory() + "/stuff/chunks/c" + v.X + " " + v.Y + " " + v.Z + ".bin");
@@ -834,7 +850,7 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 			return;
 		}
 		//lots of bools
-		bool x = true; bool z = true;
+		bool x = 1; bool z = 1;
 		for(int i = 0; i < 2; i++) {
 			if(i == 0) {
 				camerapos += new Vector3(0, -1.5f * 3, 0);
@@ -854,7 +870,7 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 				if(InChunk2(inchunkpos + movement + new Vector3(0.2f * GetSign(movement.X), 0.2f * GetSign(movement.Y), 0.2f * GetSign(movement.Z)))) {
 					s = inchunkpos + new Vector3(movement.X + (0.2f * GetSign(movement.X)), 0, 0);
 					if(chunk.bs[Vec3ToIntChunk(new Vector3(s.X, s.Y, s.Z))] != 0 && x) {
-						camerac.position.X -= movement.X * 4; x = false;
+						camerac.position.X -= movement.X * 4; x = 0;
 					}
 					s = inchunkpos + new Vector3(0, movement.Y + (0.2f * GetSign(movement.Y)), 0);
 					if(chunk.bs[Vec3ToIntChunk(new Vector3(s.X, s.Y, s.Z))] != 0) {
@@ -863,24 +879,24 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 					}
 					s = inchunkpos + new Vector3(0, 0, movement.Z + (0.2f * GetSign(movement.Z)));
 					if(chunk.bs[Vec3ToIntChunk(new Vector3(s.X, s.Y, s.Z))] != 0 && z) {
-						camerac.position.Z -= movement.Z * 4; z = false;
+						camerac.position.Z -= movement.Z * 4; z = 0;
 					}
 				} else {
 					s = inchunkpos + new Vector3(movement.X + (0.2f * GetSign(movement.X)), 0, 0);
 					if(InChunk2(s)) {
 						if(chunk.bs[Vec3ToIntChunk(new Vector3(s.X, s.Y, s.Z))] != 0 && x) {
-							camerac.position.X -= movement.X * 4; x = false;
+							camerac.position.X -= movement.X * 4; x = 0;
 						}
-					} else if(InChunk2(s) == false) { // if axis movement results in it going outside chunk
+					} else if(InChunk2(s) == 0) { // if axis movement results in it going outside chunk
 						if(movement.X > 0) { // if movement is pos (so the coord is > 15 and must be 0)
 							chunk2 = chunksglobal[GetChunkByOffset(chunkpos + new Vector3(1, 0, 0))]; // gets the right chunk
 							if(chunk2.bs[Vec3ToIntChunk(new Vector3(0, (int)t.Y, (int)t.Z))] != 0 && x) {
-								camerac.position.X -= movement.X * 4; x = false;
+								camerac.position.X -= movement.X * 4; x = 0;
 							}
 						} else if(movement.X < 0) {
 							chunk2 = chunksglobal[GetChunkByOffset(chunkpos + new Vector3(-1, 0, 0))]; // gets the right chunk
 							if(chunk2.bs[Vec3ToIntChunk(new Vector3(15, (int)t.Y, (int)t.Z))] != 0 && x) {
-								camerac.position.X -= movement.X * 4; x = false;
+								camerac.position.X -= movement.X * 4; x = 0;
 							}
 						}
 					}
@@ -890,7 +906,7 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 							camerac.position.Y -= movement.Y * 4;
 							camerac.onground = 6;
 						}
-					} else if(InChunk2(s) == false) { // if axis movement results in it going outside chunk
+					} else if(InChunk2(s) == 0) { // if axis movement results in it going outside chunk
 						if(movement.Y > 0) { // if movement is pos (so the coord is > 15 and must be 0)
 							chunk2 = chunksglobal[GetChunkByOffset(chunkpos + new Vector3(0, 1, 0))]; // gets the right chunk
 							if(chunk2.bs[Vec3ToIntChunk(new Vector3((int)t.X, 0, (int)t.Z))] != 0) {
@@ -907,18 +923,18 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 					s = inchunkpos + new Vector3(0, 0, movement.Z + (0.2f * GetSign(movement.Z)));
 					if(InChunk2(s)) {
 						if(chunk.bs[Vec3ToIntChunk(new Vector3(s.X, s.Y, s.Z))] != 0 && z) {
-							camerac.position.Z -= movement.Z * 4; z = false;
+							camerac.position.Z -= movement.Z * 4; z = 0;
 						}
-					} else if(InChunk2(s) == false) { // if axis movement results in it going outside chunk
+					} else if(InChunk2(s) == 0) { // if axis movement results in it going outside chunk
 						if(movement.Z > 0) { // if movement is pos (so the coord is > 15 and must be 0)
 							chunk2 = chunksglobal[GetChunkByOffset(chunkpos + new Vector3(0, 0, 1))]; // gets the right chunk
 							if(chunk2.bs[Vec3ToIntChunk(new Vector3((int)t.X, (int)t.Y, 0))] != 0 && z) {
-								camerac.position.Z -= movement.Z * 4; z = false;
+								camerac.position.Z -= movement.Z * 4; z = 0;
 							}
 						} else if(movement.Z < 0) {
 							chunk2 = chunksglobal[GetChunkByOffset(chunkpos + new Vector3(0, 0, -1))]; // gets the right chunk
 							if(chunk2.bs[Vec3ToIntChunk(new Vector3((int)t.X, (int)t.Y, 15))] != 0 && z) {
-								camerac.position.Z -= movement.Z * 4; z = false;
+								camerac.position.Z -= movement.Z * 4; z = 0;
 							}
 						}
 					}
@@ -941,7 +957,7 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 				if(InChunk2(inchunkpos + movement + new Vector3(0.2f * GetSign(movement.X), 0.2f * GetSign(movement.Y), 0.2f * GetSign(movement.Z)))) {
 					s = inchunkpos + new Vector3(movement.X + (0.2f * GetSign(movement.X)), 0, 0);
 					if(chunk.bs[Vec3ToIntChunk(new Vector3(s.X, s.Y, s.Z))] != 0 && x) {
-						camerac.position.X -= movement.X * 4; x = false;
+						camerac.position.X -= movement.X * 4; x = 0;
 					}
 					s = inchunkpos + new Vector3(0, movement.Y + (0.2f * GetSign(movement.Y)), 0);
 					if(chunk.bs[Vec3ToIntChunk(new Vector3(s.X, s.Y, s.Z))] != 0) {
@@ -950,24 +966,24 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 					}
 					s = inchunkpos + new Vector3(0, 0, movement.Z + (0.2f * GetSign(movement.Z)));
 					if(chunk.bs[Vec3ToIntChunk(new Vector3(s.X, s.Y, s.Z))] != 0 && z) {
-						camerac.position.Z -= movement.Z * 4; z = false;
+						camerac.position.Z -= movement.Z * 4; z = 0;
 					}
 				} else {
 					s = inchunkpos + new Vector3(movement.X + (0.2f * GetSign(movement.X)), 0, 0);
 					if(InChunk2(s)) {
 						if(chunk.bs[Vec3ToIntChunk(new Vector3(s.X, s.Y, s.Z))] != 0 && x) {
-							camerac.position.X -= movement.X * 4; x = false;
+							camerac.position.X -= movement.X * 4; x = 0;
 						}
-					} else if(InChunk2(s) == false) { // if axis movement results in it going outside chunk
+					} else if(InChunk2(s) == 0) { // if axis movement results in it going outside chunk
 						if(movement.X > 0) { // if movement is pos (so the coord is > 15 and must be 0)
 							chunk2 = chunksglobal[GetChunkByOffset(chunkpos + new Vector3(1, 0, 0))]; // gets the right chunk
 							if(chunk2.bs[Vec3ToIntChunk(new Vector3(0, (int)t.Y, (int)t.Z))] != 0 && x) {
-								camerac.position.X -= movement.X * 4; x = false;
+								camerac.position.X -= movement.X * 4; x = 0;
 							}
 						} else if(movement.X < 0) {
 							chunk2 = chunksglobal[GetChunkByOffset(chunkpos + new Vector3(-1, 0, 0))]; // gets the right chunk
 							if(chunk2.bs[Vec3ToIntChunk(new Vector3(15, (int)t.Y, (int)t.Z))] != 0 && x) {
-								camerac.position.X -= movement.X * 4; x = false;
+								camerac.position.X -= movement.X * 4; x = 0;
 							}
 						}
 					}
@@ -977,7 +993,7 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 							camerac.position.Y -= movement.Y * 4;
 							camerac.onground = 6;
 						}
-					} else if(InChunk2(s) == false) { // if axis movement results in it going outside chunk
+					} else if(InChunk2(s) == 0) { // if axis movement results in it going outside chunk
 						if(movement.Y > 0) { // if movement is pos (so the coord is > 15 and must be 0)
 							chunk2 = chunksglobal[GetChunkByOffset(chunkpos + new Vector3(0, 1, 0))]; // gets the right chunk
 							if(chunk2.bs[Vec3ToIntChunk(new Vector3((int)t.X, 0, (int)t.Z))] != 0) {
@@ -994,18 +1010,18 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 					s = inchunkpos + new Vector3(0, 0, movement.Z + (0.2f * GetSign(movement.Z)));
 					if(InChunk2(s)) {
 						if(chunk.bs[Vec3ToIntChunk(new Vector3(s.X, s.Y, s.Z))] != 0 && z) {
-							camerac.position.Z -= movement.Z * 4; z = false;
+							camerac.position.Z -= movement.Z * 4; z = 0;
 						}
-					} else if(InChunk2(s) == false) { // if axis movement results in it going outside chunk
+					} else if(InChunk2(s) == 0) { // if axis movement results in it going outside chunk
 						if(movement.Z > 0) { // if movement is pos (so the coord is > 15 and must be 0)
 							chunk2 = chunksglobal[GetChunkByOffset(chunkpos + new Vector3(0, 0, 1))]; // gets the right chunk
 							if(chunk2.bs[Vec3ToIntChunk(new Vector3((int)t.X, (int)t.Y, 0))] != 0 && z) {
-								camerac.position.Z -= movement.Z * 4; z = false;
+								camerac.position.Z -= movement.Z * 4; z = 0;
 							}
 						} else if(movement.Z < 0) {
 							chunk2 = chunksglobal[GetChunkByOffset(chunkpos + new Vector3(0, 0, -1))]; // gets the right chunk
 							if(chunk2.bs[Vec3ToIntChunk(new Vector3((int)t.X, (int)t.Y, 15))] != 0 && z) {
-								camerac.position.Z -= movement.Z * 4; z = false;
+								camerac.position.Z -= movement.Z * 4; z = 0;
 							}
 						}
 					}
@@ -1037,44 +1053,44 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 		return (u, 0, u, 0);
 	}
 	void UpdateNearbyChunks(int j2) {
-		chunksglobal[j2].changed = true;
+		chunksglobal[j2].changed = 1;
 		(vertsglobal[j2], indicesglobal[j2]) = ChunkToArrs(chunksglobal, modelsglobal, j2);
-		chunksglobal[j2].changed = false;
+		chunksglobal[j2].changed = 0;
 		int j3 = GetChunkByOffset(chunksglobal[j2].offset + new Vector3(1, 0, 0));
 		if(j3 != 99999) {
-			chunksglobal[j3].changed = true;
+			chunksglobal[j3].changed = 1;
 			(vertsglobal[j3], indicesglobal[j3]) = ChunkToArrs(chunksglobal, modelsglobal, j3);
-			chunksglobal[j3].changed = false;
+			chunksglobal[j3].changed = 0;
 		}
 		j3 = GetChunkByOffset(chunksglobal[j2].offset + new Vector3(-1, 0, 0));
 		if(j3 != 99999) {
-			chunksglobal[j3].changed = true;
+			chunksglobal[j3].changed = 1;
 			(vertsglobal[j3], indicesglobal[j3]) = ChunkToArrs(chunksglobal, modelsglobal, j3);
-			chunksglobal[j3].changed = false;
+			chunksglobal[j3].changed = 0;
 		}
 		j3 = GetChunkByOffset(chunksglobal[j2].offset + new Vector3(0, 1, 0));
 		if(j3 != 99999) {
-			chunksglobal[j3].changed = true;
+			chunksglobal[j3].changed = 1;
 			(vertsglobal[j3], indicesglobal[j3]) = ChunkToArrs(chunksglobal, modelsglobal, j3);
-			chunksglobal[j3].changed = false;
+			chunksglobal[j3].changed = 0;
 		}
 		j3 = GetChunkByOffset(chunksglobal[j2].offset + new Vector3(0, -1, 0));
 		if(j3 != 99999) {
-			chunksglobal[j3].changed = true;
+			chunksglobal[j3].changed = 1;
 			(vertsglobal[j3], indicesglobal[j3]) = ChunkToArrs(chunksglobal, modelsglobal, j3);
-			chunksglobal[j3].changed = false;
+			chunksglobal[j3].changed = 0;
 		}
 		j3 = GetChunkByOffset(chunksglobal[j2].offset + new Vector3(0, 0, 1));
 		if(j3 != 99999) {
-			chunksglobal[j3].changed = true;
+			chunksglobal[j3].changed = 1;
 			(vertsglobal[j3], indicesglobal[j3]) = ChunkToArrs(chunksglobal, modelsglobal, j3);
-			chunksglobal[j3].changed = false;
+			chunksglobal[j3].changed = 0;
 		}
 		j3 = GetChunkByOffset(chunksglobal[j2].offset + new Vector3(0, 0, -1));
 		if(j3 != 99999) {
-			chunksglobal[j3].changed = true;
+			chunksglobal[j3].changed = 1;
 			(vertsglobal[j3], indicesglobal[j3]) = ChunkToArrs(chunksglobal, modelsglobal, j3);
-			chunksglobal[j3].changed = false;
+			chunksglobal[j3].changed = 0;
 		}
 		return;
 	}
@@ -1233,7 +1249,7 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 		//}
 		float scale = 6f;
 		UpdateCorners(2);
-		if(inventory.opened == true) {
+		if(inventory.opened == 1) {
 			DrawImage(new Vector2(0, 15), 13, 11, new Vector2(0, g5), scale);
 			DrawItemsInv();
 		}
@@ -1296,14 +1312,14 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 	Vector3[] savedchunks = new Vector3[1000];
 	bool ChunkHasData(Vector3 offset) {
 		if(offset == new Vector3(0, 0, 0)) {
-			return false;
+			return 0;
 		}
 		for(int i = 0; i < savedchunks.Length; i++) {
 			if (offset == savedchunks[i]) {
-				return true;
+				return 1;
 			}
 		}
-		return false;
+		return 0;
 	}
 	void DrawImageFromID(float width, float height, Vector2 endpos, float scale, int id) {
 		Model m = new Model();
@@ -1344,17 +1360,17 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 	Chunk16 InitChunk(Vector3 v, int b) {
 		Chunk16 chunk = new Chunk16();
 		chunk.bs = new short[4096];
-		chunk.empty = true;
+		chunk.empty = 1;
 		chunk.offset = v;
-		chunk.inited = true;
-		chunk.changed = true;
-		chunk.changed2 = true;
+		chunk.inited = 1;
+		chunk.changed = 1;
+		chunk.changed2 = 1;
 		offsetdict.TryAdd(v, b);
 		return chunk;
 	}
 	Chunk16 LoadChunkFromFile(Vector3 v, int b) {
 		Chunk16 chunk = InitChunk(v, b);
-		chunk.empty = false;
+		chunk.empty = 0;
 		byte[] bytes = new byte[4096];
 		var sr2 = File.OpenRead(Directory.GetCurrentDirectory() + "/stuff/chunks/c" + v.X + " " + v.Y + " " + v.Z + ".bin");
 		sr2.Read(bytes, 0, 4096);
@@ -1368,25 +1384,25 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 	bool HasAttribute(int id, string att) {
 		if(att == "Right_Click_Action") {
 			if(ItemManager.atts[ItemManager.behaviours[id]][0]) {
-				return true;
+				return 1;
 			}
 		} 
 		else if(att == "Is_Placeable") {
 			if(ItemManager.atts[ItemManager.behaviours[id]][1]) {
-				return true;
+				return 1;
 			}
 		}
-		return false;
+		return 0;
 	}
 	List<Entity> entitiesglobal = new List<Entity>();
 	bool Vec3Same(Vector3 v1, Vector3 v2) {
 		if(MathF.Round(v1.X, 2) == MathF.Round(v2.X, 2) && MathF.Round(v1.Y, 2) == MathF.Round(v2.Y, 2) && MathF.Round(v1.Z, 2) == MathF.Round(v2.Z, 2)) {
-			return true;
+			return 1;
 		}
-		return false;
+		return 0;
 	}
 	Vector3 FindNextPos(Vector3 pos) {
-		bool b = false;
+		bool b = 0;
 		
 		for(int i = 0; i < 200; i++) { //try 200 times, adds personality lol, or you could say that they're dumb
 			int h = Vec3ToIntChunk(new Vector3(Random2(4) - 2, Random2(4) - 2, Random2(4) - 2));
@@ -1418,7 +1434,7 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 		if(j != 99999) {
 			//now the thing of smth idk
 			float a1 = 0; float a2 = 0; float a3 = 0;
-			bool a = true;
+			bool a = 1;
 			float dist = 0;
 			for(;dist < maxdist;) { //lol this is valid c# ig
 				//hmm robust voxel raycast kinda difficult ngl
@@ -1428,7 +1444,7 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 				}
 				if(a2 <= a1 && a2 <= a3) { }
 				if(a3 <= a2 && a3 <= a1) { }
-				a = false;
+				a = 0;
 			}
 		}
 		return new Vector3(0, 0, 0);
@@ -1445,10 +1461,10 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 		int j = GetChunkByOffset(chunkspos);
 		if(j != 99999) {
 			if(chunksglobal[j].bs[Vec3ToIntChunk(inchunkpos)] != 0) {
-				return true;
+				return 1;
 			}
 		}
-		return false;
+		return 0;
 	}
 	void EntityDeath(int i) {
 		if(entitiesglobal[i].collisiontype == 0) {
@@ -1503,7 +1519,7 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 		//Console.WriteLine(euler.X + " " + euler.Y);
 		float yaw = (euler.X + 0) / (180f / MathF.PI);
 		float pitch = (euler.Y + 90) / (180f / MathF.PI);
-		if(((euler.Y + 90f) % 360) < 180 && false) { 
+		if(((euler.Y + 90f) % 360) < 180 && 0) { 
 			return Vector3.Normalize(new Vector3(MathF.Cos(yaw) * MathF.Cos(pitch), MathF.Sin(yaw) * MathF.Cos(pitch), -MathF.Sin(pitch)));
 		}
 		//return Vector3.Normalize(new Vector3(MathF.Cos(yaw) * MathF.Cos(pitch), MathF.Sin(yaw) * -MathF.Cos(pitch), -MathF.Sin(pitch)));
@@ -1566,7 +1582,7 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 		//}
 		//return (vertices6, indices6); //no bc 6 is global
 	}
-	bool meshchanged2 = false;
+	bool meshchanged2 = 0;
 	protected override void OnUpdateFrame(FrameEventArgs args) {
 		base.OnUpdateFrame(args);
 	
@@ -1590,9 +1606,9 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 		if(KeyboardState.IsKeyDown(Keys.D8)) { inventoryslot = 8; }
 		if(KeyboardState.IsKeyPressed(Keys.Tab)) {
 			if(inventory.opened) {
-				inventory.opened = false;
+				inventory.opened = 0;
 			} else {
-				inventory.opened = true;
+				inventory.opened = 1;
 			}
 		}
 		if(KeyboardState.IsKeyDown(Keys.H)) {
@@ -1609,10 +1625,10 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 		}
 		if(KeyboardState.IsKeyDown(Keys.R)) {
 			for(int i = 0; i < chunksglobal.Length; i++) {
-				//meshchanged2 = true;
-				//chunksglobal[i].changed2 = true;
-				//chunksglobal[i].changed = true;
-				//chunksglobal[i].inited = false;
+				//meshchanged2 = 1;
+				//chunksglobal[i].changed2 = 1;
+				//chunksglobal[i].changed = 1;
+				//chunksglobal[i].inited = 0;
 			}
 		}
 		float sensitivity = 0.08f;
@@ -1630,7 +1646,7 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 		if(KeyboardState.IsKeyDown(Keys.Space)) { camerac.velocity.Y += 0.1f; }
 		if(KeyboardState.IsKeyDown(Keys.LeftControl)) { camerac.position.Y -= Convert.ToSingle(args.Time) * 60f * speed; }
 		if(KeyboardState.IsKeyDown(Keys.U)) { camerac.position.Y = 200; }
-		if(KeyboardState.IsKeyDown(Keys.R)) { meshchanged = true; }
+		if(KeyboardState.IsKeyDown(Keys.R)) { meshchanged = 1; }
 		if(KeyboardState.IsKeyDown(Keys.L)) { fogstrength += 0.001f; }
 		if(KeyboardState.IsKeyDown(Keys.O)) {  fogstrength -= 0.001f; }
 		camerac.roteuler.X = Math.Clamp(camerac.roteuler.X, -85, 85);
@@ -1663,11 +1679,11 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 				if(MouseState.IsButtonPressed(MouseButton.Left)) {
 					int blockid = chunksglobal[j2].bs[Vec3ToIntChunk(new Vector3((int)lookatpos.X, (int)lookatpos.Y, (int)lookatpos.Z))];
 					chunksglobal[j2].bs[Vec3ToIntChunk(new Vector3((int)lookatpos.X, (int)lookatpos.Y, (int)lookatpos.Z))] = 0;
-					meshchanged2 = true;
+					meshchanged2 = 1;
 					lock(_lock) {
 						UpdateNearbyChunks(j2);
 					}
-					chunksglobal[j2].shouldbesaved = true;
+					chunksglobal[j2].shouldbesaved = 1;
 					int slot = GetNextSlot(blockid - 1);
 					if(slot >= 0) {
 						inventory.amounts[slot] += 1;
@@ -1677,11 +1693,11 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 				Vector3 lookatpos4 = Vec3Normalize(lookatpos3, 16);
 				if(MouseState.IsButtonPressed(MouseButton.Right) && inventory.amounts[inventoryslot - 1] > 0 && HasAttribute(inventory.items[inventoryslot - 1].id, "Is_Placeable")) {
 					chunksglobal[j3].bs[Vec3ToIntChunk(new Vector3((int)lookatpos4.X, (int)lookatpos4.Y, (int)lookatpos4.Z))] = Convert.ToInt16(inventory.items[inventoryslot - 1].id + 1);
-					meshchanged2 = true;
+					meshchanged2 = 1;
 					lock(_lock) {
 						UpdateNearbyChunks(j3);
 					}
-					chunksglobal[j3].shouldbesaved = true;
+					chunksglobal[j3].shouldbesaved = 1;
 					inventory.amounts[inventoryslot - 1] -= 1;
 				}else if(MouseState.IsButtonPressed(MouseButton.Right) && inventory.amounts[inventoryslot - 1] == 0) { // if no item in hand
 					if(HasAttribute(chunksglobal[j3].bs[Vec3ToIntChunk(new Vector3((int)lookatpos4.X, (int)lookatpos4.Y, (int)lookatpos4.Z))], "Right_Click_Action")) {
@@ -1736,7 +1752,7 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 	
 		if(KeyboardState.IsKeyPressed(Keys.G)) {			
 			Entity e = new Entity {
-				hascollision = true,
+				hascollision = 1,
 				speed = 0.02f,
 				//heading = EulerToVec3(camerac.roteuler),
 				heading = forward,
@@ -1772,7 +1788,7 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 				(vertsglobal, indicesglobal) = remeshtask.Result;
 			}
 			remeshtask = null;
-			meshchanged2 = true; meshchanged = false;
+			meshchanged2 = 1; meshchanged = 0;
 		}
 	
 		if(!KeyboardState.IsKeyDown(Keys.R)) {
@@ -1789,7 +1805,7 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 	
 			GL.BindBuffer(BufferTarget.ElementArrayBuffer, ElementBufferObject);
 			GL.BufferData(BufferTarget.ElementArrayBuffer, indices5.Length * sizeof(uint), indices5, BufferUsageHint.DynamicDraw);
-			meshchanged2 = false;
+			meshchanged2 = 0;
 		} else { // do vertices 5 and UI together should be fast enough, nope will redo that
 			(vertices5, indices5) = (vertices4, indices4);
 			GL.BindVertexArray(VertexArrayObject);
@@ -1836,7 +1852,7 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 	
 	Stopwatch timeglobal = Stopwatch.StartNew();
 	
-	bool meshchanged = false;
+	bool meshchanged = 0;
 	Chunk16[] chunksglobal; // deliberately very bad name ofc
 	Model[] modelsglobal; // also misleading but idc
 	Chunk16[] featuresglobal; // hehe
@@ -1903,7 +1919,7 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 			}
 	
 			//reads through and marks amount of verts uvs and so on
-			while(true) {
+			while(1) {
 				line = sr.ReadLine();
 				if(line != null) {
 					if(line[0] == 'v' && line[1] == ' ') { g1++; }
@@ -1931,7 +1947,7 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 	
 			//now read actual data
 			sr = new StreamReader(dir + "/stuff/meshes/mesh" + i + ".txt");
-			while(true) {
+			while(1) {
 				line = sr.ReadLine();
 				if(line != null) {
 					if(line[0] == 'v' && line[1] == 'n') {
@@ -1995,7 +2011,7 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 	
 		//ConnectToMultiplayer("localhost", 1069, "Player");
 	
-		if(true) { // so doesn't even try to load chunks from memory when joining multiplayer, very elegant, don't have to change much in code yay
+		if(1) { // so doesn't even try to load chunks from memory when joining multiplayer, very elegant, don't have to change much in code yay
 			string[] strings = new string[1000]; string s; int o = 0; string[] s2 = new string[3];
 			try {
 				StreamReader sr3 = new StreamReader(Directory.GetCurrentDirectory() + "/stuff/chunks/init.txt");
@@ -2028,7 +2044,7 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 					offset = new Vector3 { X = i1, Y = i3, Z = i2 };
 					int j = -1;
 					for(int i = 0; i < chunksglobal.Length; i++) {
-						if(chunksglobal[i].inited == false) {
+						if(chunksglobal[i].inited == 0) {
 							j = i;
 							break;
 						}
@@ -2051,7 +2067,7 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 	
 					if(ChunkHasData(offset)) {
 						chunksglobal[j] = LoadChunkFromFile(offset, j);
-						meshchanged = true;
+						meshchanged = 1;
 					}
 				}
 			}
@@ -2102,13 +2118,13 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 		GL.BindBuffer(BufferTarget.ElementArrayBuffer, ElementBufferObject);
 		GL.BufferData(BufferTarget.ElementArrayBuffer, indices.Length * sizeof(uint), indices, BufferUsageHint.DynamicDraw);
 	
-		GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 7 * sizeof(float), 0);
+		GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, 0, 7 * sizeof(float), 0);
 		GL.EnableVertexAttribArray(0);
 	
-		GL.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, false, 7 * sizeof(float), 3 * sizeof(float));
+		GL.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, 0, 7 * sizeof(float), 3 * sizeof(float));
 		GL.EnableVertexAttribArray(1);
 	
-		GL.VertexAttribPointer(2, 1, VertexAttribPointerType.Float, false, 7 * sizeof(float), 6 * sizeof(float));
+		GL.VertexAttribPointer(2, 1, VertexAttribPointerType.Float, 0, 7 * sizeof(float), 6 * sizeof(float));
 		GL.EnableVertexAttribArray(2);
 	
 		//2
@@ -2130,7 +2146,7 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 		uint[] squareuint = [0, 1, 2, 0, 2, 3];
 		GL.BufferData(BufferTarget.ElementArrayBuffer, 6 * sizeof(uint), squareuint, BufferUsageHint.StaticDraw);
 	
-		GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 3 * sizeof(float), 0);
+		GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, 0, 3 * sizeof(float), 0);
 		GL.EnableVertexAttribArray(0);
 	
 		//3 (vao aand vbo and whatever)
@@ -2150,13 +2166,13 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 	
 		ElementBufferObject4 = GL.GenBuffer();
 	
-		GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 8 * sizeof(float), 0);
+		GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, 0, 8 * sizeof(float), 0);
 		GL.EnableVertexAttribArray(0);
 	
-		GL.VertexAttribPointer(1, 2, VertexAttribPointerType.Float, false, 8 * sizeof(float), 3 * sizeof(float));
+		GL.VertexAttribPointer(1, 2, VertexAttribPointerType.Float, 0, 8 * sizeof(float), 3 * sizeof(float));
 		GL.EnableVertexAttribArray(1);
 	
-		GL.VertexAttribPointer(2, 3, VertexAttribPointerType.Float, false, 8 * sizeof(float), 5 * sizeof(float));
+		GL.VertexAttribPointer(2, 3, VertexAttribPointerType.Float, 0, 8 * sizeof(float), 5 * sizeof(float));
 		GL.EnableVertexAttribArray(2);
 		//3 (only shaders) also img and fbo
 	
@@ -2314,7 +2330,7 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 	
 		base.OnRenderFrame(args);
 	
-		if(true) {
+		if(1) {
 		Matrix4 model = scale * rotation * translation;
 	
 		float[] viewf = Matrix4ToFloatArr(view);
@@ -2346,7 +2362,7 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 		RenderParticles(viewf3, projectionf3, viewf4, projectionf4);
 		}
 	
-		if(true) {
+		if(1) {
 		//and the other thing
 		shader5.Use();
 		GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
@@ -2425,11 +2441,11 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 		//}
 	
 		int location = GL.GetUniformLocation(shader6.Handle, "model");
-		GL.UniformMatrix4(location, 1, false, modelf);
+		GL.UniformMatrix4(location, 1, 0, modelf);
 		int location2 = GL.GetUniformLocation(shader6.Handle, "view");
-		GL.UniformMatrix4(location2, 1, false, viewf);
+		GL.UniformMatrix4(location2, 1, 0, viewf);
 		int location3 = GL.GetUniformLocation(shader6.Handle, "projection");
-		GL.UniformMatrix4(location3, 1, false, projectionf);
+		GL.UniformMatrix4(location3, 1, 0, projectionf);
 		int location4 = GL.GetUniformLocation(shader6.Handle, "lightdir");
 		GL.Uniform3(location4, GetSunPosFake());
 		int location5 = GL.GetUniformLocation(shader6.Handle, "lightcol");
@@ -2448,17 +2464,17 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 		int location9 = GL.GetUniformLocation(shader6.Handle, "resolution");
 		GL.Uniform2(location9, new Vector2(screenwidth2, screenheight2));
 		int location12 = GL.GetUniformLocation(shader6.Handle, "model2");
-		GL.UniformMatrix4(location12, 1, false, modelf);
+		GL.UniformMatrix4(location12, 1, 0, modelf);
 		int location13 = GL.GetUniformLocation(shader6.Handle, "shadowSmoothingLvl");
 		GL.Uniform1(location13, 1);
 		int location15 = GL.GetUniformLocation(shader6.Handle, "view3");
-		GL.UniformMatrix4(location15, 1, false, viewf3);
+		GL.UniformMatrix4(location15, 1, 0, viewf3);
 		int location16 = GL.GetUniformLocation(shader6.Handle, "projection3");
-		GL.UniformMatrix4(location16, 1, false, projectionf3);
+		GL.UniformMatrix4(location16, 1, 0, projectionf3);
 		int location17 = GL.GetUniformLocation(shader6.Handle, "view4");
-		GL.UniformMatrix4(location17, 1, false, viewf4);
+		GL.UniformMatrix4(location17, 1, 0, viewf4);
 		int location18 = GL.GetUniformLocation(shader6.Handle, "projection4");
-		GL.UniformMatrix4(location18, 1, false, projectionf4);
+		GL.UniformMatrix4(location18, 1, 0, projectionf4);
 		int location19 = GL.GetUniformLocation(shader6.Handle, "ranseed");
 		GL.Uniform1(location19, Random3(uint.MaxValue) / (float)uint.MaxValue);
 		int location20 = GL.GetUniformLocation(shader6.Handle, "fogstrength");
@@ -2505,11 +2521,11 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 		GL.BindBuffer(BufferTarget.ArrayBuffer, VertexBufferObject);
 	
 		int location = GL.GetUniformLocation(shader.Handle, "model");
-		GL.UniformMatrix4(location, 1, false, modelf);
+		GL.UniformMatrix4(location, 1, 0, modelf);
 		int location2 = GL.GetUniformLocation(shader.Handle, "view");
-		GL.UniformMatrix4(location2, 1, false, viewf);
+		GL.UniformMatrix4(location2, 1, 0, viewf);
 		int location3 = GL.GetUniformLocation(shader.Handle, "projection");
-		GL.UniformMatrix4(location3, 1, false, projectionf);
+		GL.UniformMatrix4(location3, 1, 0, projectionf);
 		int location4 = GL.GetUniformLocation(shader.Handle, "lightdir");
 		GL.Uniform3(location4, GetSunPosFake());
 		int location5 = GL.GetUniformLocation(shader.Handle, "lightcol");
@@ -2528,17 +2544,17 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 		int location9 = GL.GetUniformLocation(shader.Handle, "resolution");
 		GL.Uniform2(location9, new Vector2(screenwidth2, screenheight2));
 		int location12 = GL.GetUniformLocation(shader.Handle, "model2");
-		GL.UniformMatrix4(location12, 1, false, modelf);
+		GL.UniformMatrix4(location12, 1, 0, modelf);
 		int location13 = GL.GetUniformLocation(shader.Handle, "shadowSmoothingLvl");
 		GL.Uniform1(location13, 1);
 		int location15 = GL.GetUniformLocation(shader.Handle, "view3");
-		GL.UniformMatrix4(location15, 1, false, viewf3);
+		GL.UniformMatrix4(location15, 1, 0, viewf3);
 		int location16 = GL.GetUniformLocation(shader.Handle, "projection3");
-		GL.UniformMatrix4(location16, 1, false, projectionf3);
+		GL.UniformMatrix4(location16, 1, 0, projectionf3);
 		int location17 = GL.GetUniformLocation(shader.Handle, "view4");
-		GL.UniformMatrix4(location17, 1, false, viewf4);
+		GL.UniformMatrix4(location17, 1, 0, viewf4);
 		int location18 = GL.GetUniformLocation(shader.Handle, "projection4");
-		GL.UniformMatrix4(location18, 1, false, projectionf4);
+		GL.UniformMatrix4(location18, 1, 0, projectionf4);
 		int location19 = GL.GetUniformLocation(shader.Handle, "ranseed");
 		GL.Uniform1(location19, Random3(uint.MaxValue) / (float)uint.MaxValue);
 		int location20 = GL.GetUniformLocation(shader.Handle, "fogstrength");
@@ -2644,11 +2660,11 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 		GL.Clear(ClearBufferMask.DepthBufferBit);
 	
 		int location = GL.GetUniformLocation(shader3.Handle, "model");
-		GL.UniformMatrix4(location, 1, false, modelf);
+		GL.UniformMatrix4(location, 1, 0, modelf);
 		int location2 = GL.GetUniformLocation(shader3.Handle, "view");
-		GL.UniformMatrix4(location2, 1, false, viewf2);
+		GL.UniformMatrix4(location2, 1, 0, viewf2);
 		int location3 = GL.GetUniformLocation(shader3.Handle, "projection");
-		GL.UniformMatrix4(location3, 1, false, projectionf2);
+		GL.UniformMatrix4(location3, 1, 0, projectionf2);
 	
 		GL.DrawElements(PrimitiveType.Triangles, indices.Length, DrawElementsType.UnsignedInt, 0);
 	
@@ -2750,24 +2766,24 @@ UpdateLists(list4 quads, list4f *floats, list4 *indices, vec3 offset, vec3 orien
 	}
 	
 	//delete things ig
-	private bool disposedValue = false;
+	private bool disposedValue = 0;
 	
 	protected virtual void Dispose(bool disposing) {
 		if(!disposedValue) {
 			GL.DeleteProgram(Handle);
 	
-			disposedValue = true;
+			disposedValue = 1;
 		}
 	}
 	
 	~Shader() {
-		if(disposedValue == false) {
+		if(disposedValue == 0) {
 			Console.WriteLine("GPU Resource leak! Did you forget to call Dispose()?");
 		}
 	}
 	
 	
 	public void Dispose() {
-		Dispose(true);
+		Dispose(1);
 		GC.SuppressFinalize(this);
 	}
