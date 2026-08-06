@@ -208,6 +208,9 @@ int vec3_same(vec3 a, vec3 b) {
 	}
 	return 0;
 }
+vec3 vec3_normalize(vec3 a) {
+	return a; //TODO
+}
 
 typedef struct {
 	int x; int y; int z; int w;

@@ -74,3 +74,14 @@ int GetChunkByOffset(vec3 chunkpos) {
 	return 99999; // big number so it would crash //bad coding practice, but whatever
 }
 
+vec3 EulerToVec3(vec3 euler) { //like useless bc vey wrong, should not need that anyways lol use libraries
+	//Console.WriteLine(euler.X + " " + euler.Y);
+	float yaw = (euler.x + 0) / (180.0 / pi);
+	float pitch = (euler.y + 90) / (180.0 / pi);
+	//if(((euler.y + 90.0) % 360) < 180 && 0) { 
+	//	return Vector3.Normalize(new Vector3(MathF.Cos(yaw) * MathF.Cos(pitch), MathF.Sin(yaw) * MathF.Cos(pitch), -MathF.Sin(pitch)));
+	//}
+	//return Vector3.Normalize(new Vector3(MathF.Cos(yaw) * MathF.Cos(pitch), MathF.Sin(yaw) * -MathF.Cos(pitch), -MathF.Sin(pitch)));
+	return vec3_normalize(vec3_new(cos(yaw) * cos(pitch), sin(yaw), -sin(pitch)));
+	//return new Vector3(MathF.Cos(yaw) * MathF.Cos(pitch), 0, -MathF.Sin(pitch));
+}

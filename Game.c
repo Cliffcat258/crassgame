@@ -419,18 +419,6 @@
 		}
 		return 0;
 	}
-	Chunk16 LoadChunkFromFile(Vector3 v, int b) {
-		Chunk16 chunk = InitChunk(v, b);
-		chunk.empty = 0;
-		byte[] bytes = new byte[4096];
-		var sr2 = File.OpenRead(Directory.GetCurrentDirectory() + "/stuff/chunks/c" + v.X + " " + v.Y + " " + v.Z + ".bin");
-		sr2.Read(bytes, 0, 4096);
-		sr2.Close();
-		for(int i2 = 0; i2 < 4096; i2++) {
-			chunk.bs[i2] = bytes[i2];
-		}
-		return chunk;
-	}
 	
 	bool Vec3Same(Vector3 v1, Vector3 v2) {
 		if(MathF.Round(v1.X, 2) == MathF.Round(v2.X, 2) && MathF.Round(v1.Y, 2) == MathF.Round(v2.Y, 2) && MathF.Round(v1.Z, 2) == MathF.Round(v2.Z, 2)) {
@@ -438,59 +426,10 @@
 		}
 		return 0;
 	}
-	Vector3 FindNextPos(Vector3 pos) {
-		bool b = 0;
-		
-		for(int i = 0; i < 200; i++) { //try 200 times, adds personality lol, or you could say that they're dumb
-			int h = Vec3ToIntChunk(new Vector3(Random2(4) - 2, Random2(4) - 2, Random2(4) - 2));
-			int h2 = (int)Random2(4096);
-			Vector3 h3 = IntToVec3Chunk(h2);
-			if(chunksglobal[h].bs[h2] == 0) {
-				for(int i2 = 0; i2 < h3.Y; i2++) {
-					if(chunksglobal[h].bs[Vec3ToIntChunk(h3 - new Vector3(0,i2,0))] != 0) {
-						return chunksglobal[h].offset * 16 + (h3 - new Vector3(0, i2, 0));
-					}
-				}
-			}
-		}
-		return new Vector3();
-	}
-	void MoveEntities(int j) { //pathfinding algorithm, seems kinda hard to implement ngl
-		//ok idea, do A* (or smth) in 3 chunk radius and player places so called checkpoints it pathfinds to?
-		//lets just skip that for now lol
-		//TODO add pathfind
-	}
 	void MoveEntitiesSimple(int j) {
 		entitiesglobal[j].pos += entitiesglobal[j].heading * entitiesglobal[j].speed;
 	}
-	Vector3 VoxelRaycast(Vector3 origin, Vector3 heading) { //1 block = 1 unit
-		float maxdist = 7; //blocks (hopefully)
-		Vector3 chunkspos = new Vector3(MathF.Floor(origin.X / 16), MathF.Floor(origin.Y / 16), MathF.Floor(origin.Z / 16));
-		Vector3 inchunkpos = Vec3Normalize(origin, 16);
-		int j = GetChunkByOffset(chunkspos);
-		if(j != 99999) {
-			//now the thing of smth idk
-			float a1 = 0; float a2 = 0; float a3 = 0;
-			bool a = 1;
-			float dist = 0;
-			for(;dist < maxdist;) { //lol this is valid c# ig
-				//hmm robust voxel raycast kinda difficult ngl
-				a1 = dist / heading.X; a2 = dist / heading.Y; a3 = dist / heading.Z;
-				if(a1 <= a2 && a1 <= a3) {
-					inchunkpos += heading * 
-				}
-				if(a2 <= a1 && a2 <= a3) { }
-				if(a3 <= a2 && a3 <= a1) { }
-				a = 0;
-			}
-		}
-		return new Vector3(0, 0, 0);
-	}
-	void ExplodeSelf(int j) { //lol
-		//TODO this
-		//VoxelRaycast(entitiesglobal[j].pos, new Vector3(0, 1, 0));
-		entitiesglobal.RemoveAt(j);
-	}
+
 	bool CollisionCheck(Vector3 pos) {
 		Vector3 resultpos = pos / 2f;
 		Vector3 chunkspos = new Vector3(MathF.Floor(resultpos.X / 16), MathF.Floor(resultpos.Y / 16), MathF.Floor(resultpos.Z / 16));
@@ -503,21 +442,11 @@
 		}
 		return 0;
 	}
-	void EntityDeath(int i) {
-		if(entitiesglobal[i].collisiontype == 0) {
-			entitiesglobal.RemoveAt(i);
-			return;
-		}
-		if(entitiesglobal[i].collisiontype == 1) {
-			ExplodeSelf(i);
-			return;
-		}
-	}
 	void ProcessEntities() {
 		for(int i = 0; i < entitiesglobal.Count; i++) {
 			if(entitiesglobal[i].timer != -1) {
 				if(entitiesglobal[i].timer == 0) {
-					EntityDeath(i);
+					EntityDeath(i); //remove from list8
 					continue;
 				} else {
 					entitiesglobal[i].timer -= 1;
@@ -552,17 +481,7 @@
 		
 		//Console.WriteLine(vertices6.Length);
 	}
-	Vector3 EulerToVec3(Vector3 euler) { //like useless bc vey wrong, should not need that anyways lol use libraries
-		//Console.WriteLine(euler.X + " " + euler.Y);
-		float yaw = (euler.X + 0) / (180f / MathF.PI);
-		float pitch = (euler.Y + 90) / (180f / MathF.PI);
-		if(((euler.Y + 90f) % 360) < 180 && 0) { 
-			return Vector3.Normalize(new Vector3(MathF.Cos(yaw) * MathF.Cos(pitch), MathF.Sin(yaw) * MathF.Cos(pitch), -MathF.Sin(pitch)));
-		}
-		//return Vector3.Normalize(new Vector3(MathF.Cos(yaw) * MathF.Cos(pitch), MathF.Sin(yaw) * -MathF.Cos(pitch), -MathF.Sin(pitch)));
-		return Vector3.Normalize(new Vector3(MathF.Cos(yaw) * MathF.Cos(pitch), MathF.Sin(yaw), -MathF.Sin(pitch)));
-		//return new Vector3(MathF.Cos(yaw) * MathF.Cos(pitch), 0, -MathF.Sin(pitch));
-	}
+
 	void SimulateParticles() {
 		//vertexbufferobject4 or smth
 		List<float> vertices7 = new List<float>();
@@ -796,215 +715,24 @@
 	protected override void OnLoad() //basically init
 	{
 		entitiesglobal.Add(new Entity());
-		entitiesglobal[0] = new Entity();
+		entitiesglobal->d[0] = new Entity();
 		entitiesglobal[0].model = 1;
 		entitiesglobal[0].pos = new Vector3(35, 8, 90);
 		entitiesglobal[0].heading = Vector3.Normalize(new Vector3(1, 0, 0));
 		entitiesglobal[0].speed = 0.1f;
 		entitiesglobal[0].scale = 5f;
 		Console.Clear();
-		for(int i = 0; i < uiindices.Length; i++) {
-			uiindices[i] = new uint[0];
-		}
-		for(int i = 0; i < uiverts.Length; i++) {
-			uiverts[i] = new float[0];
-		}
 		randomseed = 1456545147;
-		//networking stuff
 	
-		//game stuff
-		ItemManager.LoadAtts();
-		//inventory bc i don't want to scroll far lol
-		for(int i = 0; i < 10; i++) {
-			inventory.items[i].id = (short)i; inventory.amounts[i] = 999;
-		}
 		//stuff init
-		string dir = Directory.GetCurrentDirectory();
-		int scrwidth = 1920; int scrheight = 1080;
+		int scrwidth = 1920; int scrheight = 1080; //initial width and heigth
 		screenwidth = scrwidth; screenheight = scrheight;
-		Random random = new Random();
-	
-		//mesh inits many
-		string line;
-		string[] lines = new string[4];
-		string[][] lines2 = new string[3][];
-		int[][] lines3 = new int[3][];
-		for(int i = 0; i < 3; i++) {
-			lines2[i] = new string[3];
-			lines3[i] = new int[3];
-		}
-		Model[] models = new Model[6];
-		//Camera cam2 = new Camera();
-	
-		//counters
-		int c1; int c2; int c3; int c4;
-		int g1; int g2; int g3; int g4;
-	
-		//loops through all available model files
-		for(int i = 0; i < 10; i++) {
-			c1 = 0; c2 = 0; c3 = 0; c4 = 0;
-			g1 = 0; g2 = 0; g3 = 0; g4 = 0;
-			StreamReader sr;
-			try {
-				sr = new StreamReader(dir + "/stuff/meshes/mesh" + i + ".txt");
-			}
-			catch(Exception) {
-				continue;
-			}
-	
-			//reads through and marks amount of verts uvs and so on
-			while(1) {
-				line = sr.ReadLine();
-				if(line != null) {
-					if(line[0] == 'v' && line[1] == ' ') { g1++; }
-					if(line[0] == 'v' && line[1] == 'n') { g2++; }
-					if(line[0] == 'v' && line[1] == 't') { g3++; }
-					if(line[0] == 'f' && line[1] == ' ') { g4++; }
-				} else { break; }
-			}
-			models[i].faces = new int[g4][][];
-			//color
-			models[i].color = new int[g4];
-			for(int i2 = 0; i2 < g4; i2++) {
-				models[i].color[i2] = random.Next(255);
-			}
-			for(int i2 = 0; i2 < g4; i2++) {
-				models[i].faces[i2] = new int[3][];
-				for(int i3 = 0; i3 < 3; i3++) {
-					models[i].faces[i2][i3] = new int[3];
-				}
-			}
-			models[i].verts = new Vector3[g1];
-			models[i].normals = new Vector3[g2];
-			models[i].uvs = new Vector2[g3];
-			sr.Close();
-	
-			//now read actual data
-			sr = new StreamReader(dir + "/stuff/meshes/mesh" + i + ".txt");
-			while(1) {
-				line = sr.ReadLine();
-				if(line != null) {
-					if(line[0] == 'v' && line[1] == 'n') {
-						lines = line.Split(' ');
-						models[i].normals[c1].X = Convert.ToSingle(lines[1]);
-						models[i].normals[c1].Y = Convert.ToSingle(lines[2]);
-						models[i].normals[c1].Z = Convert.ToSingle(lines[3]);
-						c1++;
-					} else if(line[0] == 'v' && line[1] == 't') {
-						lines = line.Split(' ');
-						models[i].uvs[c2].X = Convert.ToSingle(lines[1]);
-						models[i].uvs[c2].Y = Convert.ToSingle(lines[2]);
-						c2++;
-					} else if(line[0] == 'v' && line[1] == ' ') {
-						lines = line.Split(' ');
-						models[i].verts[c3].X = Convert.ToSingle(lines[1]);
-						models[i].verts[c3].Y = Convert.ToSingle(lines[2]);
-						models[i].verts[c3].Z = Convert.ToSingle(lines[3]);
-						c3++;
-					} else if(line[0] == 'f') {
-						lines = line.Split(' ');
-						for(int i2 = 1; i2 < lines.Length; i2++) {
-							lines2[i2 - 1] = lines[i2].Split('/');
-						}
-						for(int i3 = 0; i3 < 3; i3++) {
-							for(int i4 = 0; i4 < 3; i4++) {
-								models[i].faces[c4][i3][i4] = Convert.ToInt32(lines2[i3][i4]) - 1;
-							}
-						}
-						c4++;
-					}
-				} else { break; }
-			}
-			sr.Close();
-		}
-		Console.SetCursorPosition(0, 1);
-		Console.Write("Loaded models");
-	
-		modelsglobal = models;
-		//feature loading
-	
-		Chunk16[] features = new Chunk16[10];
-	
-		(features, featureoffsetsg) = LoadFeaturesFromTxt(features);
-	
-		featuresglobal = features;
-		Console.SetCursorPosition(0, 1);
-		Console.Write("Loaded Structures"); // called features because I couldn't remeber the right word lol
 	
 		//world init
 		chunkdist = 32;
 		chunksglobal = new Chunk16[(chunkdist) * (chunkdist) * 8];
 		for(int i = 0; i < chunksglobal.Length; i++) {
 			chunksglobal[i] = new Chunk16();
-		}
-	
-		string path = "/stuff/textures/noiseTexture.png";
-		dir = Directory.GetCurrentDirectory();
-		ImageResult image = ImageResult.FromStream(File.OpenRead(dir + path), ColorComponents.Grey);
-		imageglobal = image;
-	
-		//ConnectToMultiplayer("localhost", 1069, "Player");
-	
-		if(1) { // so doesn't even try to load chunks from memory when joining multiplayer, very elegant, don't have to change much in code yay
-			string[] strings = new string[1000]; string s; int o = 0; string[] s2 = new string[3];
-			try {
-				StreamReader sr3 = new StreamReader(Directory.GetCurrentDirectory() + "/stuff/chunks/init.txt");
-				for(int i = 0; i < 1000; i++) {
-					s = sr3.ReadLine();
-					if(s == null) {
-						break;
-					}
-					strings[i] = s;
-					o++;
-				}
-				sr3.Close();
-			}
-			catch(Exception) {
-			}
-			for(int i = 0; i < o; i++) {
-				s2 = strings[i].Split(' ');
-				savedchunks[i].X = Convert.ToSingle(s2[0]);
-				savedchunks[i].Y = Convert.ToSingle(s2[1]);
-				savedchunks[i].Z = Convert.ToSingle(s2[2]);
-			}
-		}
-	
-		//in some radius gen chunks 
-		Vector3 offset = new Vector3 { X = 0, Y = 0, Z = 0 };
-		for(int i1 = 0; i1 < chunkdist; i1++) // uhh no chunk order it is fucked, anyways to difficult to add use NeighbouringChunk
-		{
-			for(int i2 = 0; i2 < chunkdist; i2++) {
-				for(int i3 = 0; i3 < 8; i3++) {
-					offset = new Vector3 { X = i1, Y = i3, Z = i2 };
-					int j = -1;
-					for(int i = 0; i < chunksglobal.Length; i++) {
-						if(chunksglobal[i].inited == 0) {
-							j = i;
-							break;
-						}
-					}
-					if(j != -1) {
-						chunksglobal[j] = GenChunk16(offset, image, features, featureoffsetsg, j);
-					}
-					//Loading bar YAYAYAYAY, taking up like 5% of the time lol
-					Console.SetCursorPosition(0, 0);
-					string s = "Loading chunks[";
-					for(int i4 = 1; i4 < 15; i4++) {
-						if(j / (float)chunksglobal.Length > i4 / 15f) {
-							s += "#";
-						} else {
-							s += "-";
-						}
-					}
-					s += "]";
-					Console.Write(s);
-	
-					if(ChunkHasData(offset)) {
-						chunksglobal[j] = LoadChunkFromFile(offset, j);
-						meshchanged = 1;
-					}
-				}
-			}
 		}
 	
 		//no more game stuff

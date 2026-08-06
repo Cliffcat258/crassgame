@@ -13,6 +13,8 @@
 int main() {
 	list8 *a = NULL;
 	a = LoadMap(a);
+	list8 *b = LoadModels();
+	printf("hello\n");
 	ChunksToFloatArr2(a, NULL, NULL);
 	return 0;
 }

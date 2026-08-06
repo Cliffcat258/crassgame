@@ -125,3 +125,90 @@ Model GetModelTexture2(Model *model2, int id) {
 	}
 	return model;
 }
+
+list8* LoadModels() {
+	list8* models = malloc(sizeof *models);
+	 
+	//mesh inits many
+	char line[64];
+	//Camera cam2 = new Camera();
+
+	//counters
+	int c1; int c2; int c3; int c4;
+	int g1; int g2; int g3; int g4;
+
+	//loops through all available model files
+	for(int i = 0; i < 5; i++) {
+		int c1 = 0; int c2 = 0; int c3 = 0; int c4 = 0;
+		int g1 = 0; int g2 = 0; int g3 = 0; int g4 = 0;
+		FILE *file;
+		//sr = new StreamReader(dir + "/stuff/meshes/mesh" + i + ".txt");
+		char filename[256];
+		snprintf(filename, sizeof(filename), "stuff/meshes/mesh%d.txt", i);
+		file = fopen(filename, "r");
+		Model *m = malloc(sizeof *m);
+		Model m2;
+		*m = m2;
+		list8_add1(m, models); //TODO
+		printf("hyia\n");
+		if(file != NULL) {
+			//reads through and marks amount of verts uvs and so on
+			printf("hyia\n");
+			while(1) {
+				fgets(line, sizeof(line), file);
+				if(line != NULL) {
+					if(line[0] == 'v' && line[1] == ' ') { g1++; }
+					if(line[0] == 'v' && line[1] == 'n') { g2++; }
+					if(line[0] == 'v' && line[1] == 't') { g3++; }
+					if(line[0] == 'f' && line[1] == ' ') { g4++; }
+				} else { break; }
+			}
+			m->faces = list4_new(g4 * 9);
+			m->verts = list4f_new(g1 * 3); //vectors but in list4f form
+			m->normals = list4f_new(g2 * 3);
+			m->uvs = list4f_new(g3 * 2);
+			fclose(file);
+
+			//now read actual data
+			file = fopen(filename, "r");
+			while(1) {
+				fgets(line, sizeof(line), file);
+				if(line != NULL) {
+					if(line[0] == 'v' && line[1] == 'n') {
+						float a1 = m->normals.d[c1 * 3 + 0];
+						float a2 = m->normals.d[c1 * 3 + 1];
+						float a3 = m->normals.d[c1 * 3 + 2];
+						sscanf(line, " %f %f %f", &a1, &a2, &a3);
+						//models[i].normals[c1].X = Convert.ToSingle(lines[1]);
+						c1++;
+					} else if(line[0] == 'v' && line[1] == 't') {
+						float a1 = m->uvs.d[c2 * 2 + 0];
+						float a2 = m->uvs.d[c2 * 2 + 1];
+						sscanf(line, " %f %f", &a1, &a2);
+						c2++;
+					} else if(line[0] == 'v' && line[1] == ' ') {
+						float a1 = m->verts.d[c3 * 3 + 0];
+						float a2 = m->verts.d[c3 * 3 + 1];
+						float a3 = m->verts.d[c3 * 3 + 2];
+						sscanf(line, " %f %f %f", &a1, &a2, &a3);
+						c3++;
+					} else if(line[0] == 'f') {
+						float a1 = m->verts.d[c4 * 9 + 0];
+						float a2 = m->verts.d[c4 * 9 + 1];
+						float a3 = m->verts.d[c4 * 9 + 2];
+						float a4 = m->verts.d[c4 * 9 + 3];
+						float a5 = m->verts.d[c4 * 9 + 4];
+						float a6 = m->verts.d[c4 * 9 + 5];
+						float a7 = m->verts.d[c4 * 9 + 6];
+						float a8 = m->verts.d[c4 * 9 + 7];
+						float a9 = m->verts.d[c4 * 9 + 8];
+						sscanf(line, " %f %f %f %f %f %f %f %f %f", &a1, &a2, &a3, &a4, &a5, &a6, &a7, &a8, &a9);
+						c4++;
+					}
+				} else { break; }
+			}
+			fclose(file);
+		}
+	}
+	return models;
+}	

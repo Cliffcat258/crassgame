@@ -42,7 +42,7 @@ typedef struct {
 
 typedef struct {
 	/*Vector3[]*/list4f normals; /*Vector3[]*/list4f verts; /*Vector2[]*/list4f uvs;
-	/*int[][][]*/ list4 faces; /*int[]*/list4 color;
+	/*int[][][]*/ list4 faces;
 } Model;
 
 typedef struct {
