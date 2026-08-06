@@ -7,5 +7,5 @@ Also building a library with cool stuff like lists bc I want to make my own inst
 C is great!
 
 How to compile:
-$gcc Game.c
+$gcc Game.c -lm
 (will add further instructions when I get glfw working, also project doesn't compile bc it isn't nearly finished yet just thought I'd add this for fun :). )
