@@ -1,3 +1,4 @@
+#pragma once
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -201,6 +202,13 @@ vec3 vec3_mult(vec3 a, int b) {
 	return c;
 }
 
+int vec3_same(vec3 a, vec3 b) {
+	if(a.x == b.x && a.y == b.y && a.z == b.z) {
+		return 1;
+	}
+	return 0;
+}
+
 typedef struct {
 	int x; int y; int z; int w;
 } vec4;
@@ -210,6 +218,46 @@ vec4 vec4_new(float x, float y, float z, float w) {
 	a.x = x; a.y = y; a.z = z; a.w = w;
 	return a;
 }
+
+typedef struct {
+	float d[16];
+} mat4;
+
+mat4 mat4_identity() {
+	mat4 m = {0};
+	m.d[0] = 1; m.d[5] = 1; m.d[10] = 1; m.d[15] = 1;
+	return m;
+}
+
+mat4 mat4_scale(int a) {
+	mat4 m = {0};
+	m.d[0] = a; m.d[5] = a; m.d[10] = a; m.d[15] = a;
+	return m;
+}
+
+mat4 mat4_rotx(int a) { //TODO
+	mat4 m = {0};
+	return m;
+}
+
+mat4 mat4_roty(int a) { //TODO
+	mat4 m = {0};
+	return m;
+}
+
+mat4 mat4_rotz(int a) { //TODO
+	mat4 m = {0};
+	return m;
+}
+
+vec4 vec4_mult_mat4(vec4 v, mat4 m) { //TODO
+	return v;
+}
+
+typedef struct {
+	char* d;
+	int len;
+} string;
 
 void drawlisttoconsole(list *l, int width, int height) {
 	for(int y = 0; y < height; y++) {

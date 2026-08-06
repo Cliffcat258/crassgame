@@ -4,668 +4,11 @@
 #include <time.h>
 #include <math.h>
 #include "base.h"
+#include "funcs.h"
+#include "globalvars.h"
+#include "models.h"
+#include "chunks.h"
 
-typedef struct {
-	int inited; int changed; int changed2;
-	int empty; //if chunk only contains air
-	/*int[4096]*/list4 bs; vec3 offset;
-	int shouldbesaved;
-} Chunk16;
-
-typedef struct {
-	float size;
-	vec3 pos;
-	int color;
-	vec3 move;
-	float timer;
-	float timer2; //used for collision detection
-} Particle;
-
-typedef struct {
-	int id;
-	int aitype; //0 for static, 1 for simple movement, 2 for pathfind etc idk //outdated lol
-	int model;
-	vec3 pos;
-	float scale;
-	int mode; //for advanced ai or smth, probably never gonna touch this
-	int target;
-	vec3 targetpos;
-	vec3 heading;
-	float speed; //blocks per tick
-	int timer; // for timer based activities //also if timer != -1 then it is timer based, timer counts down to 0
-	int hascollision; //so no collision check for every thing, optimization :3
-	int collisiontype; //what it does when collides. //0 for dissapear 1 for explode
-} Entity;
-
-typedef struct {
-	/*Vector3[]*/list4f normals; /*Vector3[]*/list4f verts; /*Vector2[]*/list4f uvs;
-	/*int[][][]*/ list4 faces; /*int[]*/list4 color;
-} Model;
-
-typedef struct {
-	vec3 roteuler; // rotation in degrees (pitch, yaw, roll)
-	vec3 position;
-	vec3 velocity;
-	int onground;
-} Camera;
-
-Camera camerac;
-
-int VertexBufferObject;
-int ElementBufferObject;
-
-int VertexBufferObject2;
-int ElementBufferObject2;
-
-int VertexBufferObject3;
-int ElementBufferObject3;
-int VertexBufferObject4;
-int ElementBufferObject4;
-
-/*uint[]*/list4 indices;
-
-Shader shader;
-Shader shader2;
-Shader shader3;
-
-int Vec3ToIntChunk(vec3 vec) {
-	int j = (int)vec.x * 256 + (int)vec.z * 16 + (int)vec.y;
-	return j;
-}
-
-Chunk16 GenChunk16(vec3 offset, int b) {
-	return InitChunk(offset, b);
-}
-
-/*bool*/int InChunk(vec3 offset) {
-	if(offset.x < 0 || offset.x >= 16 || offset.y < 0 || offset.y >= 16 || offset.z < 0 || offset.z >= 16) {
-		return /*0*/ 0;
-	}
-	return /*1*/ 1;
-}
-/*(List<float>, List<uint>)*/void AddModelToArrs(list4f *floats, list4 *indices, vec3 offset, Model *model) { //void bc it manipulates the memory so doesn't need to return anything
-	//if(model->normals == null) { //idk how to check this rn
-	//	return (floats, indices);
-	//}
-	//floats.Capacity += model.verts.Length * 8; //uhh yeah for now it can do bc ChunkToArr already does this, but later make this functional
-	//indices.Capacity += model.faces.Length * 3; //now the list data type does that bc i'm very cool and good at programming B)
-	int floatslen = floats.size / 8;
-	for(int i = 0; i < model->verts.size; i++) {
-		//floats.Add(model->verts[i].x + offset.x);
-		list4f_add1(model->verts.d[i * 3 + 0] + offset.x, floats);
-		list4f_add1(model->verts.d[i * 3 + 1] + offset.y, floats);
-		list4f_add1(model->verts.d[i * 3 + 2] + offset.z, floats);
-		list4f_add1(model->uvs.d[i * 2 + 0], floats);
-		list4f_add1(model->uvs.d[i * 2 + 1], floats);
-		list4f_add1(model->normals.d[i * 3 + 0], floats);
-		list4f_add1(model->normals.d[i * 3 + 1], floats);
-		list4f_add1(model->normals.d[i * 3 + 2], floats);
-	}
-	for(int i = 0; i < model->faces.size; i++) {
-		//indices.Add(Convert.ToUInt32(model->faces[i][0][0] + floatslen));
-		list4_add1(model->faces.d[i * 9 + 0] + floatslen, indices);
-		list4_add1(model->faces.d[i * 9 + 3] + floatslen, indices);
-		list4_add1(model->faces.d[i * 9 + 6] + floatslen, indices);
-	}
-	//return(floats, indices);
-	return;
-}
-
-Model RotateModel2(Model *model, vec3 heading) { //ok so this should return a rotated model
-	double yaw = atan(heading.x / -heading.z) * (180.0 / pi);
-	double pitch = asin(heading.y) * (180.0 / pi);
-
-	Model model2 = RotateModel(&model, 'z', 90.0);
-	model2 = RotateModel(&model2, 'y', -yaw + 90.0);
-	return model2;
-}
-
-Model RotateModel(Model *model, char axis, double angle) {
-	Model model2 = CopyModel(model);
-	//angle = angle * MathHelper.DegToRad;
-	angle = angle * pi / 180.0;
-	if(axis == 'x') {
-		for(int i = 0; i < model->verts.size; i++) {
-			vec4 v = vec4_new(model->verts.d[i * 3 + 0], model->verts.d[i * 3 + 1], model->verts.d[i * 3 + 2], 1.0) * Matrix4.CreateRotationX(angle); //TODO huh if find out also fix other axis
-			model2.verts.d[i * 3 + 0] = v.x;
-			model2.verts.d[i * 3 + 1] = v.y;
-			model2.verts.d[i * 3 + 2] = v.z;
-		}
-		//for(int i = 0; i < model->normals.size; i++) { //TODO find out if this was even useful I think it was not but idk
-		//	model2.normals[i] = model.normals[i] * Matrix3.CreateRotationX(angle);
-		//}
-	}
-	if(axis == 'y') {
-		for(int i = 0; i < mode->.verts.Length; i++) {
-			Vector4 v = new Vector4 { X = model.verts[i].X, Y = model.verts[i].Y, Z = model.verts[i].Z, W = 1 } * Matrix4.CreateRotationY(angle);
-			model2.verts[i] = new Vector3 { X = v.X, Y = v.Y, Z = v.Z };
-		}
-	}
-	if(axis == 'z') {
-		for(int i = 0; i < mode->.verts.Length; i++) {
-			Vector4 v = new Vector4 { X = model.verts[i].X, Y = model.verts[i].Y, Z = model.verts[i].Z, W = 1 } * Matrix4.CreateRotationZ(angle);
-			model2.verts[i] = new Vector3 { X = v.X, Y = v.Y, Z = v.Z };
-		}
-	}
-	return model2;
-}
-
-Chunk16* GetNeighbouringChunk(vec3 offset, /*Chunk16[]*/list chunks, int index) {
-	Chunk16 c = Chunk16_new();
-
-	for(int i = 0; i < chunks->size; i++) {
-		if(chunks[i].offset == vec3_add(chunks[index]->offset, offset)) {
-			return chunks[i];
-		}
-	}
-	//c.time = 69; //why exactly do I need a time variable and it to be set to 69? idk but it will stay this way lol //NO THIS IS NOT STAYING LIKE THIS IT BREAKS THINGS AND IS FUCKING CONFUSING anyways
-	return &c;
-}
-
-Model CopyModel(Model *model) {
-	Model model2;
-
-	model2.verts = list4f_new(model->verts.size);
-	for(int i = 0; i < model->verts.size; i++) {
-		model2.verts.d[i] = model->verts.d[i];
-	}
-	model2.uvs = list4f_new(model->uvs.size);
-	for(int i = 0; i < model->uvs.Length; i++) {
-		model2.uvs.d[i] = model->uvs.d[i];
-	}
-	model2.normals = list4f_new(model->normals.size);
-	for(int i = 0; i < model->normals.size; i++) {
-		model2.normals.d[i] = model->normals.d[i];
-	}
-	model2.faces = list4_new(model->faces.size);
-	for(int i = 0; i < model->normals.size; i++) {
-		model2.faces.d[i] = model->faces.d[i];
-	}
-	return model2;
-}
-
-Model ScaleModel(Model *model, float scale) {
-	Model model2 = CopyModel(model);
-	for(int i = 0; i < model2.verts.size; i++) {
-		model2.verts.d[i] *= scale;
-	}
-	return model2;
-}
-
-Model GetModelTexture2(Model *model2, int id) {
-	Model model = CopyModel(model2);
-	if(id < 128 * 3) {
-		for(int i = 0; i < model.uvs.Length / 2; i++) { // /2 bc uvs are in a single list not a vec2 list
-			model.uvs.d[i * 2 + 0] = model.uvs.d[i * 2 + 0] * (1.0 / 128.0) + (id % 128) / 128.0;
-			model.uvs.d[i * 2 + 1] = model.uvs.d[i * 2 + 1] * (1.0 / 128.0) + floor(id / 128.0) / 128.0;
-		}
-	} else {
-		id = (int)floor(id / 3.0);
-		for(int i = 0; i < model.uvs.Length / 2; i++) { // /2 bc uvs are in a single list not a vec2 list
-			model.uvs.d[i * 2 + 0] = model.uvs.d[i * 2 + 0] * (1.0 / 128.0) + (id % 128) / 128.0;
-			model.uvs.d[i * 2 + 1] = model.uvs.d[i * 2 + 1] * (1.0 / 128.0) + floor(id / 128.0) / 128.0;
-		}
-	}
-	return model;
-}
-
-Vector3 IntToVec3Chunk(int a) { //XZY
-	vec3 vec = vec3_new((a / 256) % 16, a % 16, (a / 16) % 16);
-	return vec;
-}
-
-Chunk16 RotateChunk(Chunk16 *chunk, char axis) {
-	vec3 v3 = vec3_new(0,0,0);
-	Chunk16 chunk2 = Chunk16_new();
-	chunk2.bs = list4_new(4096);
-	if(axis == 'x') {
-		for(int i2 = 0; i2 < 4096; i2++) {
-			v3 = IntToVec3Chunk(i2);
-			chunk2.bs.d[Vec3ToIntChunk(vec3_new(v3.x, v3.z, v3.y))] = chunk->bs.d[i2];
-		}
-	}
-	if(axis == "z") {
-		for(int i2 = 0; i2 < 4096; i2++) {
-			v3 = IntToVec3Chunk(i2);
-			chunk2.bs[Vec3ToIntChunk(vec3_new(v3.y, v3.x, v3.z))] = chunk->bs[i2];
-		}
-	}
-	chunk2.shouldbesaved = chunk->shouldbesaved; chunk2.changed2 = chunk->changed2; chunk2.empty = chunk->empty; chunk2.offset = chunk->offset; chunk2.inited = chunk->inited; chunk2.changed = chunk->changed;
-	return &chunk2;
-}
-
-void FlipBitmap(list4 *bitmap) {
-	list4 bitmap2 = list4_new(256);
-	for(int i = 0; i < 15; i++) {
-		for(int i2 = 0; i2 < 15; i2++) {
-			bitmap2.d[i * 16 + (15 - i2)] = bitmap->d[i * 16 + i2];
-		}
-	}
-	for(int i = 0; i < 15; i++) {
-		for(int i2 = 0; i2 < 15; i2++) {
-			bitmap->d[(15 - i) * 16 + i2] = bitmap2.d[i * 16 + i2];
-		}
-	}
-	return;
-}
-
-/*int[]*/ list4 GreedyMeshingMeshGen(list4 *bitmap) {
-	//List<int> quads = new List<int>();
-	list4 quads = list4_new(0);
-	int a = 1; int c = 0; int d = 0; int e = 0; //temp lens, good luck me on figuring what the fuck i was doing lol
-	//bool b = 0; //temp bool
-	int b = 0;
-	for(int i = 0; i < 256; i++) { // 16x16 = 256 wow groundbreaking //this is why I write comments, truly.. so clever and funny I am
-		a = 1; c = 0; d = 0; b = 0;
-		if(bitmap.d[i] != 0) {
-			e = bitmap.d[i];
-			bitmap.d[i] = 0;
-			c = i;
-			//quads.Add(i / 16); //flipped rn
-			list4_add1(i / 16, &quads)
-
-			//quads.Add(i % 16); //start
-			list4_add1(i % 16, &quads)
-			if(i % 16 == 15) {
-				//while(b == 0) {
-				for(;!b;) {
-					d++;
-					if((d * 16) + c < 256 && bitmap.d[(d * 16) + c] == e) { bitmap.d[(d * 16) + c] = 0; } else { b = 1; }
-				}
-				//quads.Add(d); quads.Add(1); quads.Add(e);
-				list4_add1(d, &quads)
-				list4_add1(1, &quads)
-				list4_add1(e, &quads)
-				continue;
-			}
-			//bool b2 = 1;
-			int b2 = 1;
-			//while(b2 == 1) {
-			for(;b2;) {
-				i++;
-				if(i % 16 != 0 && bitmap.d[i] == e) {
-					a++;
-					bitmap.d[i] = 0;
-				} else { i--; break; }
-			}
-			//while(b == 0) { //now the other thing y (or x)
-			for(;!b;) {
-				d++;
-				for(int i2 = 0; i2 < a; i2++) {
-					if((d * 16) + c + i2 < 256 && bitmap.d[(d * 16) + c + i2] == e) { } else { b = 1; break; }
-				}
-				if(b) {
-					break;
-				}
-				for(int i2 = 0; i2 < a; i2++) {
-					bitmap.d[(d * 16) + c + i2] = 0;
-				}
-			}
-			//quads.Add(d); quads.Add(a); //flipped rn quads.Add(e);
-			list4_add1(d, &quads)
-			list4_add1(a, &quads)
-			list4_add1(e, &quads)
-		}
-	}
-	return quads;
-}
-
-//Do I really have to rewrite whatever this is lol //I don't even remember what this function does or why it's used //at least lists
-UpdateLists(list4 *quads, list4f *floats, list4 *indices, vec3 offset, vec3 orientation, char rotation, int offset2) { //hell yeah some style here
-	//do the thing of quads(int[]) to actual tris //ahh so that's what this does ok
-	int len = floats->size; int len2 = indices->size; //so the triangles go like //idk what tf i was thinking
-
-	for(int i = 0; i < quads.size / 5; i++) { //runs once per quad
-		for(int i2 = 0; i2 < 4; i2++) {
-			if(rotation == 'n') { //basically _ to _ (facing up)
-				//if(i2 == 0) {
-				if(!i2) {
-					list4f_add1(offset.x + quads.d[i * 5], floats);
-					list4f_add1(offset.y + offset2, floats);
-					list4f_add1(offset.z + quads.d[i * 5 + 1], floats);
-				} else if(i2 == 1) { //cannot use if(i2) bc that is 1 for any non 0 int
-					list4f_add1(offset.x + quads.d[i * 5] + quads.d[i * 5 + 2], floats);
-					list4f_add1(offset.y + offset2, floats);
-					list4f_add1(offset.z + quads.d[i * 5 + 1], floats);
-				} else if(i2 == 2) {
-					list4f_add1(offset.x + quads.d[i * 5], floats);
-					list4f_add1(offset.y + offset2, floats);
-					list4f_add1(offset.z + quads.d[i * 5 + 1] + quads.d[i * 5 + 3], floats);
-				} else if(i2 == 3) {
-					list4f_add1(offset.x + quads.d[i * 5] + quads.d[i * 5 + 2], floats);
-					list4f_add1(offset.y + offset2, floats);
-					list4f_add1(offset.z + quads.d[i * 5 + 1] + quads.d[i * 5 + 3], floats);
-				}
-			} else if(rotation == 'x') { //basically _ to | (facing left)
-				int p = quads.d[i * 5 + 1]; // * sin90 which is 1 //y'
-				int p2 = quads.d[i * 5 + 1] + quads.d[i * 5 + 3];   //y' but case 2
-				if(!i2) {
-					list4f_add1(offset.x + quads.d[i * 5], floats);
-					list4f_add1(offset.y + p, floats);
-					list4f_add1(offset.z + offset2, floats);
-				} else if(i2 == 1) {
-					list4f_add1(offset.x + quads.d[i * 5] + quads[i * 5 + 2], floats);
-					list4f_add1(offset.y + p, floats);
-					list4f_add1(offset.z + offset2, floats);
-				} else if(i2 == 2) {
-					list4f_add1(offset.x + quads.d[i * 5], floats);
-					list4f_add1(offset.y + p2, floats);
-					list4f_add1(offset.z + offset2, floats);
-				} else if(i2 == 3) {
-					list4f_add1(offset.x + quads.d[i * 5] + quads[i * 5 + 2], floats);
-					list4f_add1(offset.y + p2, floats);
-					list4f_add1(offset.z + offset2, floats);
-				}
-			} else if(rotation == 'z') { //basically _ to # (facing "camera")
-				if(!i2) {
-					list4f_add1(offset.x + offset2, floats);
-					list4f_add1(offset.y + quads.d[i * 5], floats);
-					list4f_add1(offset.z + quads.d[i * 5 + 1], floats);
-				} else if(i2 == 1) {
-					list4f_add1(offset.x + offset2, floats);
-					list4f_add1(offset.y + quads.d[i * 5] + quads[i * 5 + 2], floats);
-					list4f_add1(offset.z + quads.d[i * 5 + 1], floats);
-				} else if(i2 == 2) {
-					list4f_add1(offset.x + offset2, floats);
-					list4f_add1(offset.y + quads.d[i * 5], floats);
-					list4f_add1(offset.z + quads.d[i * 5 + 1] + quads[i * 5 + 3], floats);
-				} else if(i2 == 3) {
-					list4f_add1(offset.x + offset2, floats);
-					list4f_add1(offset.y + quads.d[i * 5] + quads[i * 5 + 2], floats);
-					list4f_add1(offset.z + quads.d[i * 5 + 1] + quads[i * 5 + 3], floats);
-				}
-			} //hell yeah sin and cos when a = 90 is just 1 and 0 yayay, no matrix mult needed
-			list4f_add1(orientation.x, floats);
-			list4f_add1(orientation.y, floats);
-			list4f_add1(orientation.z, floats);
-			list4f_add1(quads[i * 5 + 4], floats);
-		}
-		//1
-		list4_add1((len / 7) + i * 4, indices); //bottom right
-		list4_add1((len / 7) + i * 4 + 1, indices); //top right
-		list4_add1((len / 7) + i * 4 + 2, indices); //bottom left
-		//2
-		list4_add1((len / 7) + i * 4 + 2, indices); //bottom left
-		list4_add1((len / 7) + i * 4 + 1, indices); //top right
-		list4_add1((len / 7) + i * 4 + 3, indices); //top left
-	}
-	return;
-}
-//ok it wasn't that bad bc Vim is great :D
-
-//Oh this function...
-//You know what I'll just take a break :3
-//Half this code is just absolutlely useless comments lolol
-
-/*(float[], uint[])*/list8 ChunkToArrs(/*Chunk16[]*/list8 *chunks, /*Model[]*/list8 *models, int index) { //this is a nightmare, why do i do this?
-	//Model model = models[4];
-	Model *model = (Model *)models->d[4]; //yes switching to C was definitely the right choice lolol, however this makes sense actually
-	if(((Chunk16 *)chunks->d[index])->inited && !((Chunk16 *)chunks->d[index])->empty) { //but there is no other choice, to obtain speeeeed! //two different stories intersecting lolol //also this line is pretty cursed but totally normal C code like..
-		Chunk16 *chunk = (Chunk16 *)chunks->d[index]; //ok but is like this line wrong or wtf //but just maybe, this is not the goal after all
-		Chunk16 chunk2 = RotateChunk(chunk, "x");
-		Chunk16 chunk3 = RotateChunk(chunk, "z");
-		//List<float> floats = new List<float>(); //maybe I just want to write my story in code comments and need some code to comment
-		list4f floats = list4f_new(0);
-		//List<uint> indices = new List<uint>(); //whatever i guess i'll just get back to this nightmare of a code
-		list4 indices = list4_new(0);
-		list8 flindiceso = list8_new(0); //works as tuple of floats and indices, very funne name
-		list8 *flindices = &flindiceso;
-		list8_add1(&floats, flindices); list8_add1(&indices, flindices); //field of green, or whatever comment color, green is just cool
-		//Chunk16[] chunks2 = new Chunk16[6]; //bc why not
-		Chunk16* chunks2[6];
-		//chunks2[3] = GetNeighbouringChunk(new Vector3 { X = 0, Y = -1, Z = 0 }, chunks, index);
-		chunks2[3] = GetNeighbouringChunk(vec3_new(0,-1,0), chunks, index); //TODO figure out if I shouldn't be passing 'chunks' everywhere, bc it is just a list8 of the existing chunks.
-		//chunks2[1] = RotateChunk(GetNeighbouringChunk(new Vector3 { X = 0, Y = 0, Z = -1 }, chunks, index), "x");
-		chunks2[1] = GetNeighbouringChunk(vec3_new(0,0,-1), chunks, index);
-		//chunks2[5] = RotateChunk(GetNeighbouringChunk(new Vector3 { X = -1, Y = 0, Z = 0 }, chunks, index), "z"); //honestly what was I doing here... it work(s/ed) I suppose
-		chunks2[5] = GetNeighbouringChunk(vec3_new(-1,0,0), chunks, index);
-		//so many comments here, not gonna clean it up though lolol
-		//this is so bad coding etiquette, however I don't care bc this is not how to code, this is art.
-
-		//int[] quads = new int[0]; //honestly this wasn't that bad lol
-		list4 quads = list4_new(0);
-		//int[] bitmap = new int[256];
-		int bitmap[256];
-		//Vector3 offset = chunk.offset;
-		vec3 offset = chunk->offset;
-		//bool a;
-		int a;
-		//bottom face
-		//first layer with edge case
-		a = 0;
-		for(int i2 = 0; i2 < 256; i2++) {
-			//if(chunks2[3].time != 69) { //WHAT THE FUCK IS TIME AND WHY IS IT 69 I HATE YOU SO MUCH WHAT IS HONESTLY WRONG WITH YOU, fix: just comment out the line
-			if(chunks2[3]->bs[i2 * 16 + 15] == 0 && chunk->bs[i2 * 16] != 0) {
-				bitmap[i2] = chunk.bs[i2 * 16]; a = 1;
-			} else { bitmap[i2] = 0; }
-			//}
-		}
-		if(a) { quads = GreedyMeshingMeshGen(bitmap); /*(floats, indices)*/flindices = UpdateLists(quads, floats, indices, vec3_mult(offset, 16), vec3_new(0,1,0), 'n', 0); }
-		//other layers
-		for(int i = 0; i < 15; i++) { //loops through all layers and creates bitmap for the down facing things
-			a = 0;
-			for(int i2 = 0; i2 < 256; i2++) {
-				if(chunk->bs[i2 * 16 + i] == 0 && chunk->bs[i2 * 16 + i + 1] != 0) {
-					bitmap[i2] = chunk->bs[i2 * 16 + i + 1]; a = 1;
-				} else { bitmap[i2] = 0; }
-			}
-			if(a) { quads = GreedyMeshingMeshGen(bitmap); /*(floats, indices)*/flindices = UpdateLists(quads, floats, indices, vec3_mult(offset, 16), vec3_new(0,1,0), 'n', i + 1); }
-		}
-
-
-		//top face
-		//first layer with edge case
-		a = 0;
-		for(int i2 = 0; i2 < 256; i2++) {
-			if(chunks2[3]->inited && chunks2[3]->bs[i2 * 16 + 15] != 0 && chunk->bs[i2 * 16] == 0) {
-				bitmap[i2] = chunks2[3]->bs[i2 * 16 + 15]; a = 1;
-			} else { bitmap[i2] = 0; }
-		}
-		if(a) { quads = GreedyMeshingMeshGen(bitmap); flindices = UpdateLists(quads, floats, indices, vec3_mult(offset, 16), vec3_new(0,-1,0), 'n', 0); }
-		//other layers
-		for(int i = 0; i < 15; i++) { //loops through all layers and creates bitmap for the down facing things
-			a = 0;
-			for(int i2 = 0; i2 < 256; i2++) {
-				if(chunk->bs[i2 * 16 + i] != 0 && chunk->bs[i2 * 16 + i + 1] == 0) {
-					bitmap[i2] = chunk.bs[i2 * 16 + i]; a = 1;
-				} else { bitmap[i2] = 0; }
-			}
-			if(a) { quads = GreedyMeshingMeshGen(bitmap); flindices = UpdateLists(quads, floats, indices, vec3_mult(offset, 16), vec3_new(0,-1,0), 'n', i + 1); }
-		}
-
-		//right face // | to _ (counterclockwise rotation) (so down is actually left)
-		//first layer with edge case //wrong rn //now right :)
-		a = 0;
-		for(int i2 = 0; i2 < 256; i2++) {
-			if(chunks2[1]->inited && chunks2[1]->bs[i2 * 16 + 15] != 0 && chunk2->bs[i2 * 16] == 0) {
-				bitmap[i2] = chunks2[1]->bs[i2 * 16 + 15]; a = 1;
-			} else { bitmap[i2] = 0; }
-		}
-		if(a) { quads = GreedyMeshingMeshGen(bitmap); flindices = UpdateLists(quads, floats, indices, vec3_mult(offset, 16), vec3_new(0,0,1), 'x', 0); }
-		//other layers
-		for(int i = 0; i < 15; i++) { //loops through all layers and creates bitmap for the down facing things
-			a = 0;
-			for(int i2 = 0; i2 < 256; i2++) {
-				if(chunk2->bs[i2 * 16 + i] != 0 && chunk2->bs[i2 * 16 + i + 1] == 0) {
-					bitmap[i2] = chunk2->bs[i2 * 16 + i]; a = 1;
-				} else { bitmap[i2] = 0; }
-			}
-			if(a) { quads = GreedyMeshingMeshGen(bitmap); flindices = UpdateLists(quads, floats, indices, vec3_mult(offset, 16), vec3_new(0,0,1), 'x', i + 1); }
-		}
-
-		//left face
-		//first layer with edge case
-		a = 0;
-		for(int i2 = 0; i2 < 256; i2++) {
-			if(chunks2[1]->inited && chunks2[1]->bs[i2 * 16 + 15] == 0 && chunk2->bs[i2 * 16] != 0) {
-				bitmap[i2] = chunk2->bs[i2 * 16]; a = 1;
-			} else { bitmap[i2] = 0; }
-		}
-		if(a) { quads = GreedyMeshingMeshGen(bitmap); flindices = UpdateLists(quads, floats, indices, vec3_mult(offset, 16), vec3_new(0,0,-1), 'x', 0); }
-		//other layers
-		for(int i = 0; i < 15; i++) { //loops through all layers and creates bitmap for the down facing things
-			a = 0;
-			for(int i2 = 0; i2 < 256; i2++) {
-				if(chunk2->bs[i2 * 16 + i] == 0 && chunk2->bs[i2 * 16 + i + 1] != 0) {
-					bitmap[i2] = chunk2->bs[i2 * 16 + i + 1]; a = 1;
-				} else { bitmap[i2] = 0; }
-			}
-			if(a) { quads = GreedyMeshingMeshGen(bitmap); flindices = UpdateLists(quads, floats, indices, vec3_mult(offset, 16), vec3_new(0,0,-1), 'x', i + 1); }
-		}
-
-		//front face (or back idk)
-		//first layer with edge case //wrong rn //right
-		a = 0;
-		for(int i2 = 0; i2 < 256; i2++) {
-			if(chunks2[5]->bs[i2 * 16 + 15] != 0 && chunk3->bs[i2 * 16] == 0) {
-				bitmap[i2] = chunks2[5]->bs[i2 * 16 + 15]; a = 1;
-			} else { bitmap[i2] = 0; }
-		}
-		if(a) { quads = GreedyMeshingMeshGen(bitmap); flindices = UpdateLists(quads, floats, indices, vec3_mult(offset, 16), vec3_new(1,0,0), 'z', 0); }
-		//other layers
-		for(int i = 0; i < 15; i++) { //loops through all layers and creates bitmap for the down facing things
-			a = 0;
-			for(int i2 = 0; i2 < 256; i2++) {
-				if(chunk3->bs[i2 * 16 + i] != 0 && chunk3->bs[i2 * 16 + i + 1] == 0) {
-					bitmap[i2] = chunk3->bs[i2 * 16 + i]; a = 1;
-				} else { bitmap[i2] = 0; }
-			}
-			if(a) { quads = GreedyMeshingMeshGen(bitmap); flindices = UpdateLists(quads, floats, indices, vec3_mult(offset, 16), vec3_new(1,0,0), 'z', i + 1); }
-		}
-
-		//back face (or front idk)
-		//first layer with edge case //wrong rn
-		a = 0;
-		for(int i2 = 0; i2 < 256; i2++) {
-			if(chunks2[5]->bs[i2 * 16 + 15] == 0 && chunk3->bs[i2 * 16] != 0) {
-				bitmap[i2] = chunk3->bs[i2 * 16]; a = 1;
-			} else { bitmap[i2] = 0; }
-		}
-		if(a) { quads = GreedyMeshingMeshGen(bitmap); flindices = UpdateLists(quads, floats, indices, vec3_mult(offset, 16), vec3_new(-1,0,0), 'z', 0); }
-		//other layers
-		for(int i = 0; i < 15; i++) { //loops through all layers and creates bitmap for the down facing things
-			a = 0;
-			for(int i2 = 0; i2 < 256; i2++) {
-				if(chunk3->bs[i2 * 16 + i] == 0 && chunk3->bs[i2 * 16 + i + 1] != 0) {
-					bitmap[i2] = chunk3->bs[i2 * 16 + i + 1]; a = 1;
-				} else { bitmap[i2] = 0; }
-			}
-			if(a) { quads = GreedyMeshingMeshGen(bitmap); flindices = UpdateLists(quads, floats, indices, vec3_mult(offset, 16), vec3_new(-1,0,0), 'z', i + 1); }
-		}
-
-		for(int i = 0; i < floats.size; i++) {
-			//floats[i] = (floats[i] - 0.5f) * 2;
-			((list4f *)flindices->d[0])->d[i] = ( ((list4f *)flindices->d[0])->d[i] - 0.5 ) * 2;
-		}
-		return (floats.ToArray(), indices.ToArray());
-	}
-	return(new float[0], new uint[0]);
-}
-
-	static (float[], uint[]) ChunksToFloatArr(Chunk16[] chunks, Model[] models, float[] vertices, uint[] indices, float[][] verts) {
-		float[][] vertices2 = new float[chunks.Length][]; //init arrs
-		for(int i = 0; i < chunks.Length; i++) {
-			vertices2[i] = new float[0];
-		}
-		uint[][] indices2 = new uint[chunks.Length][];
-		for(int i = 0; i < chunks.Length; i++) {
-			indices2[i] = new uint[0];
-		}
-		for(int i = 0; i < chunks.Length; i++) //chunks to arrs
-		{
-			if(chunks[i].inited == 1) {
-				if(chunks[i].changed == 0 && verts[i].Length == 0) {
-					vertices2[i] = verts[i];
-					indices2[i] = new uint[0];
-				} else {
-					(vertices2[i], indices2[i]) = ChunkToArrs(chunks, models, i);
-					verts[i] = vertices2[i];
-					chunks[i].changed = 0;
-				}
-			}
-			chunks[i].changed = 1;
-		}
-	
-		(vertices, indices) = MergeFloatArrs(vertices2, indices2); // merge the arrs
-		return (vertices, indices);
-	}
-	(float[][], uint[][]) ChunksToFloatArr2(Chunk16[] chunks, Model[] models, float[][] verts, uint[][] indices) {
-	
-		for(int i = 0; i < chunks.Length; i++) //chunks to arrs
-		{
-			if(chunks[i].inited == 1) {
-				if(chunks[i].changed == 1) { // if chunk has been changed
-					(verts[i], indices[i]) = ChunkToArrs(chunks, models, i);
-					verts[i] = verts[i];
-					chunks[i].changed = 0;
-				}
-			}
-		}
-		return (verts, indices);
-	}
-	static bool ChunkInChunkdist(Vector3 pos, int chunkdist, Vector3 offset) {
-		Vector3 pos2 = new Vector3(MathF.Floor(pos.X / 64), MathF.Floor(pos.Y / 64), MathF.Floor(pos.Z / 64));
-		if(MathF.Abs(pos2.X - offset.X) > chunkdist || MathF.Abs(pos2.Z - offset.Z) > chunkdist) {
-			return 0;
-		} else { return 1; }
-	}
-	Vector3[] FindMissingChunksInRange() {
-		int g = 0; Vector3 offset = new Vector3(MathF.Round(camerac.position.X / 64), MathF.Round(camerac.position.Y / 64), MathF.Round(camerac.position.Z / 64));
-		List<Vector3> vecs = new List<Vector3>();
-		for(int i1 = Convert.ToInt32(offset.X) - (chunkdist / 2); i1 < (chunkdist / 2) + Convert.ToInt32(offset.X); i1++) {
-			for(int i2 = 0; i2 < 8; i2++) {
-				for(int i3 = Convert.ToInt32(offset.Z) - (chunkdist / 2); i3 < (chunkdist / 2) + Convert.ToInt32(offset.Z); i3++) {
-					vecs.Add(new Vector3(i1, i2, i3));
-				}
-			}
-		}
-		for(int i = 0; i < chunksglobal.Length; i++) {
-			if(chunksglobal[i].inited) {
-				vecs.Remove(chunksglobal[i].offset);
-			}
-		}
-	
-		return vecs.ToArray();
-	}
-	bool LoadUnloadChunks2() {
-		bool a = 0;
-		for(int i = 0; i < chunksglobal.Length; i++) {
-			if(!ChunkInChunkdist(camerac.position, chunkdist, chunksglobal[i].offset)) {
-				bool b = chunksglobal[i].inited;
-				chunksglobal[i].inited = 0; chunksglobal[i].empty = 1;
-				if(b != chunksglobal[i].inited) {
-					a = 1;
-				}
-				if(chunksglobal[i].shouldbesaved && b) {
-					SaveChunk(i);
-				}
-				if(b) {
-					offsetdict.Remove(chunksglobal[i].offset);
-				}
-			}
-		}
-		int g = 0;
-		Vector3[] vec3s = new Vector3[0];
-		lock(_lock) {
-			vec3s = FindMissingChunksInRange();
-		}
-		for(int i = 0; i < chunksglobal.Length; i++) {
-			lock(_lock) {
-				if(!chunksglobal[i].inited) { //so if there should be any more chunks ig
-					chunksglobal[i] = GenChunk16(vec3s[g], imageglobal, featuresglobal, featureoffsetsg, i);
-					if(ChunkHasData(vec3s[g])) {
-						chunksglobal[i] = LoadChunkFromFile(vec3s[g], i);
-						chunksglobal[i].offset = vec3s[g];
-					}
-					offsetdict.TryAdd(vec3s[g], i);
-					chunksglobal[i].inited = 1; chunksglobal[i].empty = 0; chunksglobal[i].changed = 1;
-					g += 1; //chunksglobal[i].time = (float)time;
-					a = 1;
-				}
-			}
-		}
-		return a;
-	}
 	static float[] Vec3ToFloatArrAndUVData(Vector3[] vector3s, Vector2[] UVs) {
 		float[] floats = new float[vector3s.Length * 5];
 	
@@ -691,40 +34,10 @@ UpdateLists(list4 *quads, list4f *floats, list4 *indices, vec3 offset, vec3 orie
 		return uints;
 	}
 	
-	static float[] Matrix4ToFloatArr(Matrix4 model) {
-		float[] modelf =
-		{
-			 model.M11, model.M12, model.M13, model.M14,
-			 model.M21, model.M22, model.M23, model.M24,
-			 model.M31, model.M32, model.M33, model.M34,
-			 model.M41, model.M42, model.M43, model.M44
-		};
-		return modelf;
-	}
-	int chunkdist;
-	
-	float speed = 0.2f;
-	float speed2 = 40f;
-	double time;
-	
-	float[][] vertsglobal;
-	uint[][] indicesglobal;
-	void ChangeChunks(Chunk16[] chunks) {
-		for(int i = 0; i < chunks.Length; i++) {
-			if(!chunksglobal[i].inited && chunks[i].inited) {
-				chunksglobal[i] = chunks[i];
-			}
-		}
-		return;
-	}
 	bool OnUpdatePhysics() {
 		bool change = 0;
 		change = LoadUnloadChunks2();
 		return change;
-	}
-	Vector3 Vec3Normalize(Vector3 vec3, int a) {
-		Vector3 vec = new Vector3(((vec3.X % a) + a) % a, ((vec3.Y % a) + a) % a, ((vec3.Z % a) + a) % a);
-		return vec;
 	}
 	void UpdatePlayer() {
 		float c = 0.09f; float c2 = 0.96f;
@@ -735,31 +48,6 @@ UpdateLists(list4 *quads, list4f *floats, list4 *indices, vec3 offset, vec3 orie
 		if(camerac.onground == 5) {
 			camerac.velocity.Y = 0f;
 		}
-	}
-	Vector3 Offset2(Vector3 v, float a) {
-		return new Vector3(v.X + a, v.Y + a, v.Z + a);
-	}
-	bool InChunk2(Vector3 offset) {
-		if(offset.X < 0 || offset.X >= 16 || offset.Y < 0 || offset.Y >= 16 || offset.Z < 0 || offset.Z >= 16) {
-			return 0;
-		}
-		return 1;
-	}
-	int GetSign(float a) {
-		if(a < 0) {
-			return -1;
-		}
-		if(a > 0) {
-			return 1;
-		}
-		return 0;
-	}
-	int GetChunkByOffset(Vector3 chunkpos) {
-		int a;
-		if(offsetdict.TryGetValue(chunkpos, out a)) {
-			return a;
-		}
-		return 99999; // big number so it would crash
 	}
 	void SaveChunk(int i) {
 		string[] strings = new string[1000]; string s; int o = 0;
@@ -1113,23 +401,6 @@ UpdateLists(list4 *quads, list4f *floats, list4 *indices, vec3 offset, vec3 orie
 		}
 		return uvs;
 	}
-	Vector2[] GetTextureFromSquare(Vector2 startpos, float width2, float height2) { // inputs 0 - 128, not 0 - 1
-		Vector2[] uvs = new Vector2[4];
-		Vector2 pos = new Vector2(startpos.X, startpos.Y - height2) / 128;
-		float width = width2 / 128f;
-		float height = height2 / 128f;
-		uvs[0] = pos + new Vector2(width, 0);      // bottom right
-		uvs[1] = pos;                              // bottom left
-		uvs[2] = pos + new Vector2(width, height); // top right
-		uvs[3] = pos + new Vector2(0, height);     // top left?, yes
-		//uvs[0] = new Vector2(0.2f, 0);
-		//uvs[1] = new Vector2(0, 0);
-		//uvs[2] = new Vector2(0.2f, 0.1f);
-		//uvs[3] = new Vector2(0, 0.1f);
-		return uvs;
-	}
-	Vector3 oldpos;
-	int inventoryslot = 1;
 	Vector3 LerpSomething(Vector3 v1, Vector3 v2, Vector3 v3, Vector3 v4, float y, float x) { //lerp = A + t(B - A)
 		Vector3 pos1; Vector3 pos2; // x axis
 		pos1 = v4 + y * (v1 - v4);
@@ -1137,179 +408,6 @@ UpdateLists(list4 *quads, list4f *floats, list4 *indices, vec3 offset, vec3 orie
 		Vector3 pos = pos1 + x * (pos2 - pos1);
 		return pos;
 	}
-	float gridsize = 140; // 84 actual, or 85 depends on how you look at it, lol
-	Model RenderUIQuad(Vector3 v1, Vector3 v2, Vector3 v3, Vector3 v4, float y, float x, int id, float height, float width) {
-		//this should also make the thingy fixed ratio and size (height most important)
-		Model m = new Model();
-		m.uvs = new Vector2[4];
-		for(int i = 0; i < modelsglobal[4].uvs.Length; i++) {
-			m.uvs[i] = modelsglobal[4].uvs[i];
-		}
-		m.faces = modelsglobal[4].faces;
-		m.uvs = GetTextureFromID(id, m.uvs);
-	
-		//divide screen to grid and gridsize is how many squares vertically there are
-		//y should be 0 - 19 then ig and width 1 is = 1 square // huh
-		float c = screenwidth / (float)screenheight;
-		float x2 = x / gridsize / c; float height2 = width / gridsize; // y
-		float y2 = y / gridsize; float width2 = height / gridsize / c;
-	
-		m.verts = new Vector3[4]; // 01, 00, 11, 10
-		// ok so this thing does lerp by this point x and y and width, height should be good
-		m.verts[2] = LerpSomething(v1, v2, v3, v4, y2, x2 + width2);
-		m.verts[3] = LerpSomething(v1, v2, v3, v4, y2, x2);
-		m.verts[0] = LerpSomething(v1, v2, v3, v4, y2 + height2, x2 + width2);
-		m.verts[1] = LerpSomething(v1, v2, v3, v4, y2 + height2, x2);
-	
-		return m;
-	}
-	int g1 = 138; int g2 = 1; int g3 = 2; int g4 = 2; int g5 = 75;
-	void UpdateCorners(float order) {
-		float near2 = near + (near / 100) * order;
-		float scrheight2 = 2 * MathF.Tan(((float)Math.PI / 180 * fov) / 2) * (near2 + 0.1f);
-		float scrwidth2 = scrheight2/* * screenwidth / screenheight*/; // lol that about fixed it yay
-		Vector3 center = camerac.position / 2 + forward * (near2 + 0.1f);
-		Vector3 right = Vector3.Normalize(Vector3.Cross(forward, up));
-		up_right = center + right * scrwidth2 / 2 + up * scrheight2 / 2;
-		down_right = center + right * scrwidth2 / 2 - up * scrheight2 / 2;
-		up_left = center - right * scrwidth2 / 2 + up * scrheight2 / 2;
-		down_left = center - right * scrwidth2 / 2 - up * scrheight2 / 2;
-	}
-	void RenderUI() {
-		uiverts[0] = new float[0]; uiindices[0] = new uint[0];
-		string text1 = camerac.position.X.ToString("F2") + " " + camerac.position.Y.ToString("F2") + " " + camerac.position.Z.ToString("F2");
-		UpdateCorners(0);
-		DrawText(text1, 0, 0 * g3);
-		DrawText(inventoryslot.ToString(), 0, -2 * g3);
-	
-		Vector2 mousepos = MouseState.Position;
-		mousepos.Y /= screenheight; mousepos.X /= screenwidth;
-		mousepos.Y *= -140; mousepos.X = mousepos.X * (140f * (screenwidth / (float)screenheight));
-		mouseposui = mousepos;
-		mousepos.X += 2f; mousepos.Y -= 2f;
-		DrawText(mousepos.X.ToString("F2") + " " + mousepos.Y.ToString("F2"), 0, -4 * g3);
-		//DrawText("Cursor", mousepos.X, mousepos.Y);
-		DrawText(screenheight.ToString("F2") + " " + screenwidth.ToString("F2"), 0, -6 * g3);
-		DrawInventory();
-	}
-	Vector2 mouseposui;
-	Vector3 up_left; Vector3 up_right; Vector3 down_left; Vector3 down_right;
-	int resolutionmode = 1;
-	int GetSlot() {
-		Vector2 v2 = new Vector2();
-		if(resolutionmode == 0) {
-			float scalethingy = 6f * 2f;
-			v2 = new Vector2((mouseposui.X / scalethingy) - 1f, (mouseposui.Y / scalethingy) + 9.5f); // changed
-		}
-		if(resolutionmode == 1) {
-			v2 = new Vector2((mouseposui.X / scalethingy) - 1f, (mouseposui.Y / scalethingy) + 12f);
-		}
-		if(v2.X > 0 && v2.X < 8) { // if it is in the general inventory space
-			if(v2.Y > 0 && v2.Y < 1) { // if it in hotbar
-				return (int)MathF.Ceiling(v2.X);
-			}
-			if(v2.Y > 2 && v2.Y < 8) { // if in rest of inventory
-				return (int)(MathF.Ceiling(v2.X) + MathF.Ceiling(v2.Y - 2) * 8);
-			}
-		}
-		return -1;
-	}
-	float temp = 0;
-	Inventory inventory = new Inventory();
-	int GetFreeSlot() {
-		for(int i = 0; i < inventory.items.Length; i++) {
-			if(inventory.amounts[i] == 0) {
-				return i;
-			}
-		}
-		return -1;
-	}
-	int GetSlotCorrespond(int id) {
-		for(int i = 0; i < inventory.items.Length; i++) {
-			if(inventory.items[i].id == id) {
-				return i;
-			}
-		}
-		return -1;
-	}
-	int GetNextSlot(int id) {
-		int b = GetSlotCorrespond(id);
-		if(b != -1) {
-			return b;
-		} else {
-			return GetFreeSlot();
-		}
-	}
-	float scalethingy;
-	void DrawInventory() { // also pretty cool balatro seed: U31PHCPF double hangin chad with showman, and photograph
-		if(KeyboardState.IsKeyPressed(Keys.Up)) { temp += 0.1f; }
-		if(KeyboardState.IsKeyPressed(Keys.Down)) { temp -= 0.1f; }
-		//if(KeyboardState.IsKeyPressed(Keys.B)) {
-		//    g5 += 1;
-		//}
-		float scale = 6f;
-		UpdateCorners(2);
-		if(inventory.opened == 1) {
-			DrawImage(new Vector2(0, 15), 13, 11, new Vector2(0, g5), scale);
-			DrawItemsInv();
-		}
-		scalethingy = scale * 1.6f; // VERY IMPORANT, if ever change, it is also in getslot
-		string text = "";
-		text = ((mouseposui.X / scalethingy) - 1f).ToString("0.00") + " " + ((mouseposui.Y / scalethingy) + 12f).ToString("0.00");
-		UpdateCorners(0);
-		DrawText(text, mouseposui.X + 2, mouseposui.Y - 2);
-		string text2 = GetSlot().ToString();
-		DrawText(text2, 0, -8 * g3);
-		string text3 = "";
-		if(GetSlot() != -1) {
-			text3 = inventory.items[GetSlot() - 1].id.ToString();
-		}
-		DrawText(text3, 0, -10 * g3);
-	}
-	Vector2 GetVector2FromIntInv(int a) {
-		Vector2 v2 = new Vector2(a % 8, MathF.Floor(a / 8)) * 6f;
-		return v2;
-	}
-	void DrawItemsInv() { // very fucked lol, bc *magic* numbers
-		UpdateCorners(1);
-		for(int i = 0; i < inventory.items.Length; i++) {
-			if(inventory.items[i].id != -1) {
-	
-				//for the next line, it works, no more needed to say, hehe of course it didn't *lines now
-				if(resolutionmode == 0) {
-					if(i >= 8) { // does the line between the hotbar and rest of inv
-						DrawImageFromID(1, 1, GetVector2FromIntInv(i) + new Vector2(0, 14f) + (new Vector2(0.7f, 1.2f) * scalethingy), scalethingy * 0.4f, inventory.items[i].id * 3);
-						//also draw text aka amount
-						DrawText(inventory.amounts[i].ToString("0"), ((i % 8) + 1f) * scalethingy * 1.25f, ((11.6f) - 1 - MathF.Floor(i / 8)) * -scalethingy);
-					} else {
-						DrawImageFromID(1, 1, GetVector2FromIntInv(i) + new Vector2(0, 14f) + (new Vector2(0.7f, 0.55f) * scalethingy), scalethingy * 0.4f, inventory.items[i].id * 3);
-						//aslo draw amount, but lower
-						DrawText(inventory.amounts[i].ToString("0"), ((i % 8) + 1f) * scalethingy * 1.25f, ((11.6f) - MathF.Floor(i / 8)) * -scalethingy);
-					}
-				}
-				if(resolutionmode == 1) {
-					if(i >= 8) { // does the line between the hotbar and rest of inv
-						DrawImageFromID(1, 1, GetVector2FromIntInv(i) + new Vector2(0, 14f) + (new Vector2(0.7f, 1.2f) * scalethingy), scalethingy * 0.4f, inventory.items[i].id * 3);
-						//also draw text aka amount
-						DrawText(inventory.amounts[i].ToString("0"), ((i % 8) + 1f) * scalethingy, ((12f) - 1 - MathF.Floor(i / 8)) * -scalethingy);
-					} else {
-						DrawImageFromID(1, 1, GetVector2FromIntInv(i) + new Vector2(0, 14f) + (new Vector2(0.7f, 0.55f) * scalethingy), scalethingy * 0.4f, inventory.items[i].id * 3);
-						//aslo draw amount, but lower
-						DrawText(inventory.amounts[i].ToString("0"), ((i % 8) + 1f) * scalethingy, ((12f) - MathF.Floor(i / 8)) * -scalethingy);
-					}
-				}
-			}
-		}
-		UpdateCorners(0);
-	}
-	void DrawText(string text, float y, float x) { // remember to do (x * g3) thingy
-		Model ms = new Model();
-		for(int i = 0; i < text.Length; i++) {
-			ms = RenderUIQuad(up_left, up_right, down_right, down_left, g1 + x, g2 + y + (i * g4), (int)Convert.ToChar(text[i]) + 128 * 3 - 1, g3, g4);
-			(uiverts[0], uiindices[0]) = AddModelToArrs2(uiverts[0], uiindices[0], new Vector3(0, 0, 0), ms);
-		}
-	}
-	Vector3[] savedchunks = new Vector3[1000];
 	bool ChunkHasData(Vector3 offset) {
 		if(offset == new Vector3(0, 0, 0)) {
 			return 0;
@@ -1320,53 +418,6 @@ UpdateLists(list4 *quads, list4f *floats, list4 *indices, vec3 offset, vec3 orie
 			}
 		}
 		return 0;
-	}
-	void DrawImageFromID(float width, float height, Vector2 endpos, float scale, int id) {
-		Model m = new Model();
-		m.faces = modelsglobal[4].faces;
-		//int id = (int)startpos.X + (int)startpos.Y * 128;
-		m.uvs = GetTextureFromID(id, modelsglobal[4].uvs);
-		width = width * scale; height *= scale;
-		//endpos += new Vector2(0, 140); // probs won't need the next line, yay
-		//endpos += new Vector2(0, -40); // some magic numbers yay, we all love magic numbers that can't be explained, 29 is tha magic number for absolutely no reason whatsoever, idk
-		m.verts = new Vector3[4]; // 01, 00, 11, 10
-		float c = (float)screenwidth / screenheight;
-		float x2 = endpos.X / gridsize; float height2 = height / gridsize * c;
-		float y2 = endpos.Y / gridsize * c; float width2 = width / gridsize;
-		m.verts[2] = LerpSomething(up_left, up_right, down_right, down_left, y2, x2 + width2);
-		m.verts[3] = LerpSomething(up_left, up_right, down_right, down_left, y2, x2);
-		m.verts[0] = LerpSomething(up_left, up_right, down_right, down_left, y2 - height2, x2 + width2);
-		m.verts[1] = LerpSomething(up_left, up_right, down_right, down_left, y2 - height2, x2);
-		(uiverts[0], uiindices[0]) = AddModelToArrs2(uiverts[0], uiindices[0], new Vector3(0, 0, 0), m);
-	}
-	void DrawImage(Vector2 startpos, float width, float height, Vector2 endpos, float scale) {
-		Model m = new Model();
-		m.faces = modelsglobal[4].faces;
-		//int id = (int)startpos.X + (int)startpos.Y * 128;
-		m.uvs = GetTextureFromSquare(startpos, width, height);
-		width = width * scale; height *= scale;
-		//endpos += new Vector2(0, 140); // probs won't need the next line, yay
-		//endpos += new Vector2(0, -40); // some magic numbers yay, we all love magic numbers that can't be explained, 29 is tha magic number for absolutely no reason whatsoever, idk
-		m.verts = new Vector3[4]; // 01, 00, 11, 10
-		float c = (float)screenwidth / screenheight;
-		float x2 = endpos.X / gridsize; float height2 = height / gridsize * c;
-		float y2 = endpos.Y / gridsize * c; float width2 = width / gridsize;
-		m.verts[2] = LerpSomething(up_left, up_right, down_right, down_left, y2, x2 + width2);
-		m.verts[3] = LerpSomething(up_left, up_right, down_right, down_left, y2, x2);
-		m.verts[0] = LerpSomething(up_left, up_right, down_right, down_left, y2 - height2, x2 + width2);
-		m.verts[1] = LerpSomething(up_left, up_right, down_right, down_left, y2 - height2, x2);
-		(uiverts[0], uiindices[0]) = AddModelToArrs2(uiverts[0], uiindices[0], new Vector3(0, 0, 0), m);
-	}
-	Chunk16 InitChunk(Vector3 v, int b) {
-		Chunk16 chunk = new Chunk16();
-		chunk.bs = new short[4096];
-		chunk.empty = 1;
-		chunk.offset = v;
-		chunk.inited = 1;
-		chunk.changed = 1;
-		chunk.changed2 = 1;
-		offsetdict.TryAdd(v, b);
-		return chunk;
 	}
 	Chunk16 LoadChunkFromFile(Vector3 v, int b) {
 		Chunk16 chunk = InitChunk(v, b);
@@ -1381,20 +432,6 @@ UpdateLists(list4 *quads, list4f *floats, list4 *indices, vec3 offset, vec3 orie
 		return chunk;
 	}
 	
-	bool HasAttribute(int id, string att) {
-		if(att == "Right_Click_Action") {
-			if(ItemManager.atts[ItemManager.behaviours[id]][0]) {
-				return 1;
-			}
-		} 
-		else if(att == "Is_Placeable") {
-			if(ItemManager.atts[ItemManager.behaviours[id]][1]) {
-				return 1;
-			}
-		}
-		return 0;
-	}
-	List<Entity> entitiesglobal = new List<Entity>();
 	bool Vec3Same(Vector3 v1, Vector3 v2) {
 		if(MathF.Round(v1.X, 2) == MathF.Round(v2.X, 2) && MathF.Round(v1.Y, 2) == MathF.Round(v2.Y, 2) && MathF.Round(v1.Z, 2) == MathF.Round(v2.Z, 2)) {
 			return 1;
@@ -1582,7 +619,6 @@ UpdateLists(list4 *quads, list4f *floats, list4 *indices, vec3 offset, vec3 orie
 		//}
 		//return (vertices6, indices6); //no bc 6 is global
 	}
-	bool meshchanged2 = 0;
 	protected override void OnUpdateFrame(FrameEventArgs args) {
 		base.OnUpdateFrame(args);
 	
@@ -1604,33 +640,6 @@ UpdateLists(list4 *quads, list4f *floats, list4 *indices, vec3 offset, vec3 orie
 		if(KeyboardState.IsKeyDown(Keys.D6)) { inventoryslot = 6; }
 		if(KeyboardState.IsKeyDown(Keys.D7)) { inventoryslot = 7; }
 		if(KeyboardState.IsKeyDown(Keys.D8)) { inventoryslot = 8; }
-		if(KeyboardState.IsKeyPressed(Keys.Tab)) {
-			if(inventory.opened) {
-				inventory.opened = 0;
-			} else {
-				inventory.opened = 1;
-			}
-		}
-		if(KeyboardState.IsKeyDown(Keys.H)) {
-			string s;
-			s = KeyboardState.ToString();
-			s = s.Replace("{", ""); s = s.Replace("}", ""); s = s.Replace(" ", ""); s = s.Replace(",", ""); s = s.Replace("H", "");
-			Console.WriteLine(s);
-			for(int i = 32; i < 127; i++) {
-				if(s.Contains((char)i)) {
-					inventoryslot = i + (128 * 3);
-					break;
-				}
-			}
-		}
-		if(KeyboardState.IsKeyDown(Keys.R)) {
-			for(int i = 0; i < chunksglobal.Length; i++) {
-				//meshchanged2 = 1;
-				//chunksglobal[i].changed2 = 1;
-				//chunksglobal[i].changed = 1;
-				//chunksglobal[i].inited = 0;
-			}
-		}
 		float sensitivity = 0.08f;
 		if(CursorState == CursorState.Grabbed) {
 			camerac.roteuler += new Vector3(-MouseState.Delta.Y, -MouseState.Delta.X, 0) * sensitivity;
@@ -1691,62 +700,15 @@ UpdateLists(list4 *quads, list4f *floats, list4 *indices, vec3 offset, vec3 orie
 					}
 				}
 				Vector3 lookatpos4 = Vec3Normalize(lookatpos3, 16);
-				if(MouseState.IsButtonPressed(MouseButton.Right) && inventory.amounts[inventoryslot - 1] > 0 && HasAttribute(inventory.items[inventoryslot - 1].id, "Is_Placeable")) {
-					chunksglobal[j3].bs[Vec3ToIntChunk(new Vector3((int)lookatpos4.X, (int)lookatpos4.Y, (int)lookatpos4.Z))] = Convert.ToInt16(inventory.items[inventoryslot - 1].id + 1);
+				if(MouseState.IsButtonPressed(MouseButton.Right)) {
+					chunksglobal[j3].bs[Vec3ToIntChunk(new Vector3((int)lookatpos4.X, (int)lookatpos4.Y, (int)lookatpos4.Z))] = inventoryslot;
 					meshchanged2 = 1;
 					lock(_lock) {
 						UpdateNearbyChunks(j3);
 					}
 					chunksglobal[j3].shouldbesaved = 1;
-					inventory.amounts[inventoryslot - 1] -= 1;
-				}else if(MouseState.IsButtonPressed(MouseButton.Right) && inventory.amounts[inventoryslot - 1] == 0) { // if no item in hand
-					if(HasAttribute(chunksglobal[j3].bs[Vec3ToIntChunk(new Vector3((int)lookatpos4.X, (int)lookatpos4.Y, (int)lookatpos4.Z))], "Right_Click_Action")) {
-						//open the inventory
-					}
 				}
 			} else { //so if can't place blocks
-			}
-		} else { // so if inv is opened
-			int slot = GetSlot() - 1;
-			if(slot > -1) {
-				if(inventory.helditem.id >= 0) { // if holding something
-					if(MouseState.IsButtonPressed(MouseButton.Left) && inventory.items[slot].id == inventory.helditem.id) {
-						inventory.amounts[slot] += inventory.helditemamount;
-						inventory.items[slot] = inventory.helditem;
-						inventory.helditemamount = 0;
-						inventory.helditem = new Item(-1);
-					}
-					if(MouseState.IsButtonPressed(MouseButton.Left) && inventory.items[slot].id == -1) {
-						inventory.amounts[slot] += inventory.helditemamount;
-						inventory.items[slot] = inventory.helditem;
-						inventory.helditemamount = 0;
-						inventory.helditem = new Item(-1);
-					}
-					if(MouseState.IsButtonPressed(MouseButton.Right) && inventory.items[slot].id == inventory.helditem.id) {
-						inventory.amounts[slot] += 1;
-						inventory.helditemamount -= 1;
-						if(inventory.helditemamount == 0) {
-							inventory.helditem = new Item(-1);
-						}
-					}
-				} else { // when not holding smth
-					if(inventory.items[slot].id >= 0) { //when hovering over item that exists, yes very logical
-						if(MouseState.IsButtonPressed(MouseButton.Left)) {
-							inventory.helditem = inventory.items[slot];
-							inventory.items[slot] = new Item(-1);
-							inventory.helditemamount = inventory.amounts[slot];
-							inventory.amounts[slot] = 0;
-						}
-						if(MouseState.IsButtonPressed(MouseButton.Right)) {
-							inventory.helditem = inventory.items[slot];
-							inventory.helditemamount = 1;
-							inventory.amounts[slot] -= 1;
-							if(inventory.amounts[slot] == 0) {
-								inventory.items[slot] = new Item(-1);
-							}
-						}
-					}
-				}
 			}
 		}
 	
@@ -1830,34 +792,6 @@ UpdateLists(list4 *quads, list4f *floats, list4 *indices, vec3 offset, vec3 orie
 		GL.BindBuffer(BufferTarget.ElementArrayBuffer, ElementBufferObject4);
 		GL.BufferData(BufferTarget.ElementArrayBuffer, indices6.Length * sizeof(uint), indices6, BufferUsageHint.DynamicDraw);
 	}
-	
-	
-	Stopwatch particletimer = Stopwatch.StartNew();
-	Particle[] particles = new Particle[500];
-	private static readonly object _lock = new();
-	
-	Dictionary<Vector3, int> offsetdict = new Dictionary<Vector3, int>();
-	Vector3 forward;
-	Vector3 right;
-	Vector3 up;
-	
-	float[] vertices4 = new float[0]; uint[] indices4 = new uint[0];
-	float[] vertices5 = new float[0]; uint[] indices5 = new uint[0];
-	float[] vertices6 = new float[0]; uint[] indices6 = new uint[0];
-	float[][] uiverts = new float[2][]; uint[][] uiindices = new uint[2][];
-	
-	Task<bool> physicstask = null;
-	Task<(float[][], uint[][])> remeshtask = null;
-	Task playertask = null;
-	
-	Stopwatch timeglobal = Stopwatch.StartNew();
-	
-	bool meshchanged = 0;
-	Chunk16[] chunksglobal; // deliberately very bad name ofc
-	Model[] modelsglobal; // also misleading but idc
-	Chunk16[] featuresglobal; // hehe
-	Vector3[] featureoffsetsg;
-	ImageResult imageglobal;
 	
 	protected override void OnLoad() //basically init
 	{
@@ -2300,31 +1234,6 @@ UpdateLists(list4 *quads, list4f *floats, list4 *indices, vec3 offset, vec3 orie
 		GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.DepthAttachment, TextureTarget.Texture2D, shadowtexture3, 0);
 	
 	}
-	int screenwidth2 = 640; int screenheight2 = 480;
-	int shadowq = 4;
-	float near; float far;
-	float fov;
-	
-	Matrix4 projection = Matrix4.Identity;
-	//model
-	Matrix4 translation = Matrix4.Identity;
-	Matrix4 scale = Matrix4.CreateScale(1, 2, 1);
-	Matrix4 rotation = Matrix4.Identity;
-	//view
-	Matrix4 view;
-	int VertexArrayObject;
-	int VertexArrayObject2;
-	int VertexArrayObject3;
-	Shader shader4; Shader shader5; Shader shader6;
-	
-	int shadowtexture2;
-	int shadowtexture3;
-	int maindepthtexture;
-	int fbo4;
-	int fbo5;
-	int skytexture;
-	int maintexture; int fbo6;
-	
 	
 	protected override void OnRenderFrame(FrameEventArgs args) {
 	
@@ -2486,7 +1395,6 @@ UpdateLists(list4 *quads, list4f *floats, list4 *indices, vec3 offset, vec3 orie
 		
 	}
 	
-	int skyquality;
 	void RenderMain(float[] viewf3, float[] projectionf3, float[] viewf4, float[] projectionf4) {
 		Matrix4 model = scale * rotation * translation;
 	
@@ -2562,7 +1470,6 @@ UpdateLists(list4 *quads, list4f *floats, list4 *indices, vec3 offset, vec3 orie
 	
 		GL.DrawElements(PrimitiveType.Triangles, indices.Length, DrawElementsType.UnsignedInt, 0);
 	}
-	float fogstrength = 0.004f;
 	void RenderSky(Vector3 viewdir) {
 		//da sky
 		GL.Viewport(0, 0, screenwidth2, screenheight2);
@@ -2612,8 +1519,6 @@ UpdateLists(list4 *quads, list4f *floats, list4 *indices, vec3 offset, vec3 orie
 	
 		GL.DrawElements(PrimitiveType.Triangles, 6, DrawElementsType.UnsignedInt, 0);
 	}
-	Matrix4 view2;
-	int fbo3; int shadowtexture;
 	
 	(float[], float[]) RenderShadowToTexture(int level, Vector3 sunpos) {
 		//ok now time for the shadows
@@ -2688,9 +1593,6 @@ UpdateLists(list4 *quads, list4f *floats, list4 *indices, vec3 offset, vec3 orie
 		return new Vector3(MathF.Cos(pitch) * MathF.Sin(yaw), MathF.Sin(pitch), MathF.Cos(pitch) * MathF.Cos(yaw));
 	}
 	
-	Stopwatch timer = Stopwatch.StartNew();
-	int screenwidth;
-	int screenheight;
 	protected override void OnFramebufferResize(FramebufferResizeEventArgs e) {
 		base.OnFramebufferResize(e);
 	
