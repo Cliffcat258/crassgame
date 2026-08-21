@@ -24,7 +24,7 @@ int InChunk(vec3 offset) {
 
 Chunk16* GetNeighbouringChunk(vec3 offset, /*Chunk16[]*/list8 *chunks, int index) {
 	for(int i = 0; i < chunks->size; i++) {
-		if(vec3_same(((Chunk16*)chunks->d[i])->offset, vec3_add(((Chunk16*)chunks->d[i])->offset, offset))) {
+		if(vec3_same(((Chunk16*)chunks->d[i])->offset, vec3_add(((Chunk16*)chunks->d[index])->offset, offset))) {
 			return (Chunk16*)chunks->d[i];
 		}
 	}

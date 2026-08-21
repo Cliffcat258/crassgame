@@ -128,6 +128,7 @@ Model GetModelTexture2(Model *model2, int id) {
 
 list8* LoadModels() {
 	list8* models = malloc(sizeof *models);
+	*models = list8_new(0);
 	 
 	//mesh inits many
 	char line[64];
@@ -136,6 +137,7 @@ list8* LoadModels() {
 	//counters
 	int c1; int c2; int c3; int c4;
 	int g1; int g2; int g3; int g4;
+	int g = 1;
 
 	//loops through all available model files
 	for(int i = 0; i < 5; i++) {
@@ -147,21 +149,17 @@ list8* LoadModels() {
 		snprintf(filename, sizeof(filename), "stuff/meshes/mesh%d.txt", i);
 		file = fopen(filename, "r");
 		Model *m = malloc(sizeof *m);
-		Model m2;
-		*m = m2;
-		list8_add1(m, models); //TODO
-		printf("hyia\n");
+		list8_add1(m, models);
 		if(file != NULL) {
 			//reads through and marks amount of verts uvs and so on
-			printf("hyia\n");
-			while(1) {
-				fgets(line, sizeof(line), file);
-				if(line != NULL) {
+			g = 1;
+			while(g) {
+				if(fgets(line, sizeof(line), file)) {
 					if(line[0] == 'v' && line[1] == ' ') { g1++; }
 					if(line[0] == 'v' && line[1] == 'n') { g2++; }
 					if(line[0] == 'v' && line[1] == 't') { g3++; }
 					if(line[0] == 'f' && line[1] == ' ') { g4++; }
-				} else { break; }
+				} else { g = 0; }
 			}
 			m->faces = list4_new(g4 * 9);
 			m->verts = list4f_new(g1 * 3); //vectors but in list4f form
@@ -171,9 +169,9 @@ list8* LoadModels() {
 
 			//now read actual data
 			file = fopen(filename, "r");
-			while(1) {
-				fgets(line, sizeof(line), file);
-				if(line != NULL) {
+			g = 1;
+			while(g) {
+				if(fgets(line, sizeof(line), file)) {
 					if(line[0] == 'v' && line[1] == 'n') {
 						float a1 = m->normals.d[c1 * 3 + 0];
 						float a2 = m->normals.d[c1 * 3 + 1];
@@ -205,7 +203,7 @@ list8* LoadModels() {
 						sscanf(line, " %f %f %f %f %f %f %f %f %f", &a1, &a2, &a3, &a4, &a5, &a6, &a7, &a8, &a9);
 						c4++;
 					}
-				} else { break; }
+				} else { g = 0; }
 			}
 			fclose(file);
 		}

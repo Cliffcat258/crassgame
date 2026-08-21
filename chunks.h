@@ -14,15 +14,16 @@
 
 Chunk16 Chunk16_new() {
 	Chunk16 c;
-	c.inited = 0; c.changed = 0; c.changed2 = 0; c.empty = 1; c.shouldbesaved = 0;
+	c.inited = 0; c.changed = 0; c.changed2 = 0; c.empty = 0; c.shouldbesaved = 0;
 	c.bs = list4_new(4096);
 	c.offset = vec3_new(0,0,0);
+	return c;
 }
 
 Chunk16 InitChunk(vec3 v) {
 	Chunk16 chunk;
 	chunk.bs = list4_new(4096);
-	chunk.empty = 1;
+	chunk.empty = 0;
 	chunk.offset = v;
 	chunk.inited = 1;
 	chunk.changed = 1;
@@ -220,7 +221,7 @@ void UpdateLists(list4 *quads, list4f *floats, list4 *indices, vec3 offset, vec3
 	Model *model = (Model *)models->d[4]; //yes switching to C was definitely the right choice lolol, however this makes sense actually //TODO crashes here rn bc no models
 	if(((Chunk16 *)chunks->d[index])->inited && !((Chunk16 *)chunks->d[index])->empty) { //but there is no other choice, to obtain speeeeed! //two different stories intersecting lolol //also this line is pretty cursed but totally normal C code like..
 		Chunk16 *chunk = (Chunk16 *)chunks->d[index]; //ok but is like this line wrong or wtf //but just maybe, this is not the goal after all
-		Chunk16 chunk2v = RotateChunk(chunk, 'x');
+		Chunk16 chunk2v = RotateChunk(chunk, 'x'); //ERROR
 		Chunk16 chunk3v = RotateChunk(chunk, 'z');
 		Chunk16 *chunk2 = &chunk2v;
 		Chunk16 *chunk3 = &chunk3v;
@@ -255,11 +256,15 @@ void UpdateLists(list4 *quads, list4f *floats, list4 *indices, vec3 offset, vec3
 		//bottom face
 		//first layer with edge case
 		a = 0;
+		printf("hm\n");
 		for(int i2 = 0; i2 < 256; i2++) {
 			//if(chunks2[3].time != 69) { //WHAT THE FUCK IS TIME AND WHY IS IT 69 I HATE YOU SO MUCH WHAT IS HONESTLY WRONG WITH YOU, fix: just comment out the line
+			printf("hm\n");
+			printf("%d\n", chunks2[3]->inited);
 			if(chunks2[3]->bs.d[i2 * 16 + 15] == 0 && chunk->bs.d[i2 * 16] != 0) {
 				bitmap->d[i2] = chunk->bs.d[i2 * 16]; a = 1;
 			} else { bitmap->d[i2] = 0; }
+			printf("hm\n");
 			//}
 		}
 		if(a) { quads = GreedyMeshingMeshGen(bitmap); /*(floats, indices)*/UpdateLists(&quads, floats, indices, vec3_mult(offset, 16), vec3_new(0,1,0), 'n', 0); }
@@ -379,6 +384,7 @@ void UpdateLists(list4 *quads, list4f *floats, list4 *indices, vec3 offset, vec3
 			//floats[i] = (floats[i] - 0.5f) * 2;
 			((list4f *)flindices->d[0])->d[i] = ( ((list4f *)flindices->d[0])->d[i] - 0.5 ) * 2;
 		}
+		list4f_print(floats);
 		list8_add1(floats, flindices); list8_add1(indices, flindices);
 		return flindices;
 	}
@@ -391,8 +397,8 @@ void ChunksToFloatArr2(list8 *chunks, list8 *models, list8 *flindices2 /*the gre
 	for(int i = 0; i < chunks->size; i++) {
 		if(((Chunk16 *)chunks->d[i])->inited) {
 			if(((Chunk16 *)chunks->d[i])->changed) { // if chunk has been changed
+				printf("%d\n", i);
 				temp = ChunkToArrs(chunks, models, i);
-				printf("hyia\n");
 				if(temp != NULL) {
 					list8 *pair = (list8 *)flindices2->d[i];
 					list4f *floats = (list4f *)pair->d[0];

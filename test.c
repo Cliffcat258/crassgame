@@ -15,6 +15,7 @@ int main() {
 	a = LoadMap(a);
 	list8 *b = LoadModels();
 	printf("hello\n");
-	ChunksToFloatArr2(a, NULL, NULL);
+	list8 *c = malloc(sizeof(*c));
+	ChunksToFloatArr2(a, b, c);
 	return 0;
 }
