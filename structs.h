@@ -11,7 +11,7 @@
 typedef struct {
 	int inited; int changed; int changed2;
 	int empty; //if chunk only contains air
-	/*int[4096]*/list4 bs; vec3 offset;
+	/*int[4096]*/list4 *bs; vec3 offset;
 	int shouldbesaved;
 } Chunk16;
 

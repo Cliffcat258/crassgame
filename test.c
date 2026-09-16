@@ -11,11 +11,17 @@
 #include "chunks.h"
 
 int main() {
-	list8 *a = NULL;
+	list8 *a = malloc(sizeof(*a));
+	*a = list8_new(0);
 	a = LoadMap(a);
 	list8 *b = LoadModels();
 	printf("hello\n");
 	list8 *c = malloc(sizeof(*c));
+	*c = list8_new(0);
 	ChunksToFloatArr2(a, b, c);
+	for(int i = 0; i < a->size; i++) {
+		Chunk16_free((Chunk16 *)a->d[i]);
+	}
+	getch();
 	return 0;
 }

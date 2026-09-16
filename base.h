@@ -151,6 +151,12 @@ list8 list8_new(int size) {
 	return a;
 }
 
+void list8_init(list8 *a) {
+	a->capacity = 0;
+	a->size = 0;
+	a->d = NULL;
+}
+
 void list8_changesize(list8 *a, int capacity) {
 	void **b = realloc(a->d, capacity * 8);
 	a->d = b; a-> capacity = capacity;

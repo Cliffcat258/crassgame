@@ -29,7 +29,7 @@ Chunk16* GetNeighbouringChunk(vec3 offset, /*Chunk16[]*/list8 *chunks, int index
 		}
 	}
 	//c.time = 69; //why exactly do I need a time variable and it to be set to 69? idk but it will stay this way lol //NO THIS IS NOT STAYING LIKE THIS IT BREAKS THINGS AND IS FUCKING CONFUSING anyways
-	return NULL;
+	return (Chunk16 *)chunks->d[0]; //TODO maybe fix idk this shouldn't do anything bad was NULL before
 }
 
 vec3 IntToVec3Chunk(int a) { //XZY

@@ -12,45 +12,44 @@
 
 //for chunk related functions such as gen, load unload, save, turn to vert/indices etc.
 
-Chunk16 Chunk16_new() {
-	Chunk16 c;
-	c.inited = 0; c.changed = 0; c.changed2 = 0; c.empty = 0; c.shouldbesaved = 0;
-	c.bs = list4_new(4096);
-	c.offset = vec3_new(0,0,0);
+Chunk16* InitChunk(vec3 v) {
+	Chunk16 *c = malloc(sizeof *c);
+	c->bs = malloc(sizeof(list4));
+	*(c->bs) = list4_new(4096);
+	c->empty = 0;
+	c->offset = v;
+	c->inited = 1;
+	c->changed = 1;
+	c->changed2 = 1;
 	return c;
 }
 
-Chunk16 InitChunk(vec3 v) {
-	Chunk16 chunk;
-	chunk.bs = list4_new(4096);
-	chunk.empty = 0;
-	chunk.offset = v;
-	chunk.inited = 1;
-	chunk.changed = 1;
-	chunk.changed2 = 1;
-	return chunk;
+void Chunk16_free(Chunk16 *c) {
+	free(c->bs->d);
+	free(c->bs);
+	free(c);
 }
 
-Chunk16 GenChunk16(vec3 offset) {
+Chunk16* GenChunk16(vec3 offset) {
 	return InitChunk(offset);
 }
 
-Chunk16 RotateChunk(Chunk16 *chunk, char axis) {
+Chunk16* RotateChunk(Chunk16 *chunk, char axis) {
 	vec3 v3 = vec3_new(0,0,0);
-	Chunk16 chunk2 = Chunk16_new();
+	Chunk16 *chunk2 = InitChunk(chunk->offset);
 	if(axis == 'x') {
 		for(int i2 = 0; i2 < 4096; i2++) {
 			v3 = IntToVec3Chunk(i2);
-			chunk2.bs.d[Vec3ToIntChunk(vec3_new(v3.x, v3.z, v3.y))] = chunk->bs.d[i2];
+			chunk2->bs->d[Vec3ToIntChunk(vec3_new(v3.x, v3.z, v3.y))] = chunk->bs->d[i2];
 		}
 	}
 	if(axis == 'z') {
 		for(int i2 = 0; i2 < 4096; i2++) {
 			v3 = IntToVec3Chunk(i2);
-			chunk2.bs.d[Vec3ToIntChunk(vec3_new(v3.y, v3.x, v3.z))] = chunk->bs.d[i2];
+			chunk2->bs->d[Vec3ToIntChunk(vec3_new(v3.y, v3.x, v3.z))] = chunk->bs->d[i2];
 		}
 	}
-	chunk2.shouldbesaved = chunk->shouldbesaved; chunk2.changed2 = chunk->changed2; chunk2.empty = chunk->empty; chunk2.offset = chunk->offset; chunk2.inited = chunk->inited; chunk2.changed = chunk->changed;
+	chunk2->shouldbesaved = chunk->shouldbesaved; chunk2->changed2 = chunk->changed2; chunk2->empty = chunk->empty; chunk2->offset = chunk->offset; chunk2->inited = chunk->inited; chunk2->changed = chunk->changed;
 	return chunk2;
 }
 
@@ -69,9 +68,10 @@ void FlipBitmap(list4 *bitmap) {
 	return;
 }
 
-/*int[]*/ list4 GreedyMeshingMeshGen(list4 *bitmap) {
+/*int[]*/ list4* GreedyMeshingMeshGen(list4 *bitmap) {
 	//List<int> quads = new List<int>();
-	list4 quads = list4_new(0);
+	list4 *quads = malloc(sizeof(*quads));
+	*quads = list4_new(0);
 	int a = 1; int c = 0; int d = 0; int e = 0; //temp lens, good luck me on figuring what the fuck i was doing lol
 	//bool b = 0; //temp bool
 	int b = 0;
@@ -82,10 +82,10 @@ void FlipBitmap(list4 *bitmap) {
 			bitmap->d[i] = 0;
 			c = i;
 			//quads.Add(i / 16); //flipped rn
-			list4_add1(i / 16, &quads);
+			list4_add1(i / 16, quads);
 
 			//quads.Add(i % 16); //start
-			list4_add1(i % 16, &quads);
+			list4_add1(i % 16, quads);
 			if(i % 16 == 15) {
 				//while(b == 0) {
 				for(;!b;) {
@@ -93,9 +93,9 @@ void FlipBitmap(list4 *bitmap) {
 					if((d * 16) + c < 256 && bitmap->d[(d * 16) + c] == e) { bitmap->d[(d * 16) + c] = 0; } else { b = 1; }
 				}
 				//quads.Add(d); quads.Add(1); quads.Add(e);
-				list4_add1(d, &quads);
-				list4_add1(1, &quads);
-				list4_add1(e, &quads);
+				list4_add1(d, quads);
+				list4_add1(1, quads);
+				list4_add1(e, quads);
 				continue;
 			}
 
@@ -121,9 +121,9 @@ void FlipBitmap(list4 *bitmap) {
 				}
 			}
 			//quads.Add(d); quads.Add(a); //flipped rn quads.Add(e);
-			list4_add1(d, &quads);
-			list4_add1(a, &quads);
-			list4_add1(e, &quads);
+			list4_add1(d, quads);
+			list4_add1(a, quads);
+			list4_add1(e, quads);
 		}
 	}
 	return quads;
@@ -221,18 +221,18 @@ void UpdateLists(list4 *quads, list4f *floats, list4 *indices, vec3 offset, vec3
 	Model *model = (Model *)models->d[4]; //yes switching to C was definitely the right choice lolol, however this makes sense actually //TODO crashes here rn bc no models
 	if(((Chunk16 *)chunks->d[index])->inited && !((Chunk16 *)chunks->d[index])->empty) { //but there is no other choice, to obtain speeeeed! //two different stories intersecting lolol //also this line is pretty cursed but totally normal C code like..
 		Chunk16 *chunk = (Chunk16 *)chunks->d[index]; //ok but is like this line wrong or wtf //but just maybe, this is not the goal after all
-		Chunk16 chunk2v = RotateChunk(chunk, 'x'); //ERROR
-		Chunk16 chunk3v = RotateChunk(chunk, 'z');
-		Chunk16 *chunk2 = &chunk2v;
-		Chunk16 *chunk3 = &chunk3v;
+		Chunk16 *chunk2 = RotateChunk(chunk, 'x'); //ERROR
+		Chunk16 *chunk3 = RotateChunk(chunk, 'z');
 		//List<float> floats = new List<float>(); //maybe I just want to write my story in code comments and need some code to comment
 		list4f *floats = malloc(sizeof *floats);
 		*floats = list4f_new(0);
 		//List<uint> indices = new List<uint>(); //whatever i guess i'll just get back to this nightmare of a code
 		list4 *indices = malloc(sizeof *indices);
 		*indices = list4_new(0);
-		list8 flindiceso = list8_new(0); //works as tuple of floats and indices, very funne name
-		list8 *flindices = &flindiceso;
+		//list8 flindiceso = list8_new(0); //works as tuple of floats and indices, very funne name
+		//list8 *flindices = &flindiceso;
+		list8 *flindices = malloc(sizeof *flindices);
+		*flindices = list8_new(0);
 		//Chunk16[] chunks2 = new Chunk16[6]; //bc why not
 		Chunk16* chunks2[6];
 		//chunks2[3] = GetNeighbouringChunk(new Vector3 { X = 0, Y = -1, Z = 0 }, chunks, index);
@@ -245,7 +245,7 @@ void UpdateLists(list4 *quads, list4f *floats, list4 *indices, vec3 offset, vec3
 		//this is so bad coding etiquette, however I don't care bc this is not how to code, this is art.
 
 		//int[] quads = new int[0]; //honestly this wasn't that bad lol
-		list4 quads = list4_new(0);
+		list4 *quads;
 		//int[] bitmap = new int[256];
 		list4 bitmapv = list4_new(256);
 		list4 *bitmap = &bitmapv;
@@ -256,27 +256,24 @@ void UpdateLists(list4 *quads, list4f *floats, list4 *indices, vec3 offset, vec3
 		//bottom face
 		//first layer with edge case
 		a = 0;
-		printf("hm\n");
 		for(int i2 = 0; i2 < 256; i2++) {
 			//if(chunks2[3].time != 69) { //WHAT THE FUCK IS TIME AND WHY IS IT 69 I HATE YOU SO MUCH WHAT IS HONESTLY WRONG WITH YOU, fix: just comment out the line
-			printf("hm\n");
-			printf("%d\n", chunks2[3]->inited);
-			if(chunks2[3]->bs.d[i2 * 16 + 15] == 0 && chunk->bs.d[i2 * 16] != 0) {
-				bitmap->d[i2] = chunk->bs.d[i2 * 16]; a = 1;
+			//printf("%d\n", chunks2[3]->inited);
+			if(chunks2[3]->bs->d[i2 * 16 + 15] == 0 && chunk->bs->d[i2 * 16] != 0) {
+				bitmap->d[i2] = chunk->bs->d[i2 * 16]; a = 1;
 			} else { bitmap->d[i2] = 0; }
-			printf("hm\n");
 			//}
 		}
-		if(a) { quads = GreedyMeshingMeshGen(bitmap); /*(floats, indices)*/UpdateLists(&quads, floats, indices, vec3_mult(offset, 16), vec3_new(0,1,0), 'n', 0); }
+		if(a) { quads = GreedyMeshingMeshGen(bitmap); /*(floats, indices)*/UpdateLists(quads, floats, indices, vec3_mult(offset, 16), vec3_new(0,1,0), 'n', 0); free(quads->d); free(quads); }
 		//other layers
 		for(int i = 0; i < 15; i++) { //loops through all layers and creates bitmap for the down facing things
 			a = 0;
 			for(int i2 = 0; i2 < 256; i2++) {
-				if(chunk->bs.d[i2 * 16 + i] == 0 && chunk->bs.d[i2 * 16 + i + 1] != 0) {
-					bitmap->d[i2] = chunk->bs.d[i2 * 16 + i + 1]; a = 1;
+				if(chunk->bs->d[i2 * 16 + i] == 0 && chunk->bs->d[i2 * 16 + i + 1] != 0) {
+					bitmap->d[i2] = chunk->bs->d[i2 * 16 + i + 1]; a = 1;
 				} else { bitmap->d[i2] = 0; }
 			}
-			if(a) { quads = GreedyMeshingMeshGen(bitmap); /*(floats, indices)*/UpdateLists(&quads, floats, indices, vec3_mult(offset, 16), vec3_new(0,1,0), 'n', i + 1); }
+			if(a) { quads = GreedyMeshingMeshGen(bitmap); /*(floats, indices)*/UpdateLists(quads, floats, indices, vec3_mult(offset, 16), vec3_new(0,1,0), 'n', i + 1); free(quads->d); free(quads); }
 		}
 
 
@@ -284,108 +281,111 @@ void UpdateLists(list4 *quads, list4f *floats, list4 *indices, vec3 offset, vec3
 		//first layer with edge case
 		a = 0;
 		for(int i2 = 0; i2 < 256; i2++) {
-			if(chunks2[3]->inited && chunks2[3]->bs.d[i2 * 16 + 15] != 0 && chunk->bs.d[i2 * 16] == 0) {
-				bitmap->d[i2] = chunks2[3]->bs.d[i2 * 16 + 15]; a = 1;
+			if(chunks2[3]->inited && chunks2[3]->bs->d[i2 * 16 + 15] != 0 && chunk->bs->d[i2 * 16] == 0) {
+				bitmap->d[i2] = chunks2[3]->bs->d[i2 * 16 + 15]; a = 1;
 			} else { bitmap->d[i2] = 0; }
 		}
-		if(a) { quads = GreedyMeshingMeshGen(bitmap); UpdateLists(&quads, floats, indices, vec3_mult(offset, 16), vec3_new(0,-1,0), 'n', 0); }
+		if(a) { quads = GreedyMeshingMeshGen(bitmap); UpdateLists(quads, floats, indices, vec3_mult(offset, 16), vec3_new(0,-1,0), 'n', 0); free(quads->d); free(quads); }
 		//other layers
 		for(int i = 0; i < 15; i++) { //loops through all layers and creates bitmap for the down facing things
 			a = 0;
 			for(int i2 = 0; i2 < 256; i2++) {
-				if(chunk->bs.d[i2 * 16 + i] != 0 && chunk->bs.d[i2 * 16 + i + 1] == 0) {
-					bitmap->d[i2] = chunk->bs.d[i2 * 16 + i]; a = 1;
+				if(chunk->bs->d[i2 * 16 + i] != 0 && chunk->bs->d[i2 * 16 + i + 1] == 0) {
+					bitmap->d[i2] = chunk->bs->d[i2 * 16 + i]; a = 1;
 				} else { bitmap->d[i2] = 0; }
 			}
-			if(a) { quads = GreedyMeshingMeshGen(bitmap); UpdateLists(&quads, floats, indices, vec3_mult(offset, 16), vec3_new(0,-1,0), 'n', i + 1); }
+			if(a) { quads = GreedyMeshingMeshGen(bitmap); UpdateLists(quads, floats, indices, vec3_mult(offset, 16), vec3_new(0,-1,0), 'n', i + 1); free(quads->d); free(quads); }
 		}
 
 		//right face // | to _ (counterclockwise rotation) (so down is actually left)
 		//first layer with edge case //wrong rn //now right :)
 		a = 0;
 		for(int i2 = 0; i2 < 256; i2++) {
-			if(chunks2[1]->inited && chunks2[1]->bs.d[i2 * 16 + 15] != 0 && chunk2->bs.d[i2 * 16] == 0) {
-				bitmap->d[i2] = chunks2[1]->bs.d[i2 * 16 + 15]; a = 1;
+			if(chunks2[1]->inited && chunks2[1]->bs->d[i2 * 16 + 15] != 0 && chunk2->bs->d[i2 * 16] == 0) {
+				bitmap->d[i2] = chunks2[1]->bs->d[i2 * 16 + 15]; a = 1;
 			} else { bitmap->d[i2] = 0; }
 		}
-		if(a) { quads = GreedyMeshingMeshGen(bitmap); UpdateLists(&quads, floats, indices, vec3_mult(offset, 16), vec3_new(0,0,1), 'x', 0); }
+		if(a) { quads = GreedyMeshingMeshGen(bitmap); UpdateLists(quads, floats, indices, vec3_mult(offset, 16), vec3_new(0,0,1), 'x', 0); free(quads->d); free(quads); }
 		//other layers
 		for(int i = 0; i < 15; i++) { //loops through all layers and creates bitmap for the down facing things
 			a = 0;
 			for(int i2 = 0; i2 < 256; i2++) {
-				if(chunk2->bs.d[i2 * 16 + i] != 0 && chunk2->bs.d[i2 * 16 + i + 1] == 0) {
-					bitmap->d[i2] = chunk2->bs.d[i2 * 16 + i]; a = 1;
+				if(chunk2->bs->d[i2 * 16 + i] != 0 && chunk2->bs->d[i2 * 16 + i + 1] == 0) {
+					bitmap->d[i2] = chunk2->bs->d[i2 * 16 + i]; a = 1;
 				} else { bitmap->d[i2] = 0; }
 			}
-			if(a) { quads = GreedyMeshingMeshGen(bitmap); UpdateLists(&quads, floats, indices, vec3_mult(offset, 16), vec3_new(0,0,1), 'x', i + 1); }
+			if(a) { quads = GreedyMeshingMeshGen(bitmap); UpdateLists(quads, floats, indices, vec3_mult(offset, 16), vec3_new(0,0,1), 'x', i + 1); free(quads->d); free(quads); }
 		}
 
 		//left face
 		//first layer with edge case
 		a = 0;
 		for(int i2 = 0; i2 < 256; i2++) {
-			if(chunks2[1]->inited && chunks2[1]->bs.d[i2 * 16 + 15] == 0 && chunk2->bs.d[i2 * 16] != 0) {
-				bitmap->d[i2] = chunk2->bs.d[i2 * 16]; a = 1;
+			if(chunks2[1]->inited && chunks2[1]->bs->d[i2 * 16 + 15] == 0 && chunk2->bs->d[i2 * 16] != 0) {
+				bitmap->d[i2] = chunk2->bs->d[i2 * 16]; a = 1;
 			} else { bitmap->d[i2] = 0; }
 		}
-		if(a) { quads = GreedyMeshingMeshGen(bitmap); UpdateLists(&quads, floats, indices, vec3_mult(offset, 16), vec3_new(0,0,-1), 'x', 0); }
+		if(a) { quads = GreedyMeshingMeshGen(bitmap); UpdateLists(quads, floats, indices, vec3_mult(offset, 16), vec3_new(0,0,-1), 'x', 0); free(quads->d); free(quads); }
 		//other layers
 		for(int i = 0; i < 15; i++) { //loops through all layers and creates bitmap for the down facing things
 			a = 0;
 			for(int i2 = 0; i2 < 256; i2++) {
-				if(chunk2->bs.d[i2 * 16 + i] == 0 && chunk2->bs.d[i2 * 16 + i + 1] != 0) {
-					bitmap->d[i2] = chunk2->bs.d[i2 * 16 + i + 1]; a = 1;
+				if(chunk2->bs->d[i2 * 16 + i] == 0 && chunk2->bs->d[i2 * 16 + i + 1] != 0) {
+					bitmap->d[i2] = chunk2->bs->d[i2 * 16 + i + 1]; a = 1;
 				} else { bitmap->d[i2] = 0; }
 			}
-			if(a) { quads = GreedyMeshingMeshGen(bitmap); UpdateLists(&quads, floats, indices, vec3_mult(offset, 16), vec3_new(0,0,-1), 'x', i + 1); }
+			if(a) { quads = GreedyMeshingMeshGen(bitmap); UpdateLists(quads, floats, indices, vec3_mult(offset, 16), vec3_new(0,0,-1), 'x', i + 1); free(quads->d); free(quads); }
 		}
 
 		//front face (or back idk)
 		//first layer with edge case //wrong rn //right
 		a = 0;
 		for(int i2 = 0; i2 < 256; i2++) {
-			if(chunks2[5]->bs.d[i2 * 16 + 15] != 0 && chunk3->bs.d[i2 * 16] == 0) {
-				bitmap->d[i2] = chunks2[5]->bs.d[i2 * 16 + 15]; a = 1;
+			if(chunks2[5]->bs->d[i2 * 16 + 15] != 0 && chunk3->bs->d[i2 * 16] == 0) {
+				bitmap->d[i2] = chunks2[5]->bs->d[i2 * 16 + 15]; a = 1;
 			} else { bitmap->d[i2] = 0; }
 		}
-		if(a) { quads = GreedyMeshingMeshGen(bitmap); UpdateLists(&quads, floats, indices, vec3_mult(offset, 16), vec3_new(1,0,0), 'z', 0); }
+		if(a) { quads = GreedyMeshingMeshGen(bitmap); UpdateLists(quads, floats, indices, vec3_mult(offset, 16), vec3_new(1,0,0), 'z', 0); free(quads->d); free(quads); }
 		//other layers
 		for(int i = 0; i < 15; i++) { //loops through all layers and creates bitmap for the down facing things
 			a = 0;
 			for(int i2 = 0; i2 < 256; i2++) {
-				if(chunk3->bs.d[i2 * 16 + i] != 0 && chunk3->bs.d[i2 * 16 + i + 1] == 0) {
-					bitmap->d[i2] = chunk3->bs.d[i2 * 16 + i]; a = 1;
+				if(chunk3->bs->d[i2 * 16 + i] != 0 && chunk3->bs->d[i2 * 16 + i + 1] == 0) {
+					bitmap->d[i2] = chunk3->bs->d[i2 * 16 + i]; a = 1;
 				} else { bitmap->d[i2] = 0; }
 			}
-			if(a) { quads = GreedyMeshingMeshGen(bitmap); UpdateLists(&quads, floats, indices, vec3_mult(offset, 16), vec3_new(1,0,0), 'z', i + 1); }
+			if(a) { quads = GreedyMeshingMeshGen(bitmap); UpdateLists(quads, floats, indices, vec3_mult(offset, 16), vec3_new(1,0,0), 'z', i + 1); free(quads->d); free(quads); }
 		}
 
 		//back face (or front idk)
 		//first layer with edge case //wrong rn
 		a = 0;
 		for(int i2 = 0; i2 < 256; i2++) {
-			if(chunks2[5]->bs.d[i2 * 16 + 15] == 0 && chunk3->bs.d[i2 * 16] != 0) {
-				bitmap->d[i2] = chunk3->bs.d[i2 * 16]; a = 1;
+			if(chunks2[5]->bs->d[i2 * 16 + 15] == 0 && chunk3->bs->d[i2 * 16] != 0) {
+				bitmap->d[i2] = chunk3->bs->d[i2 * 16]; a = 1;
 			} else { bitmap->d[i2] = 0; }
 		}
-		if(a) { quads = GreedyMeshingMeshGen(bitmap); UpdateLists(&quads, floats, indices, vec3_mult(offset, 16), vec3_new(-1,0,0), 'z', 0); }
+		if(a) { quads = GreedyMeshingMeshGen(bitmap); UpdateLists(quads, floats, indices, vec3_mult(offset, 16), vec3_new(-1,0,0), 'z', 0); free(quads->d); free(quads); }
 		//other layers
 		for(int i = 0; i < 15; i++) { //loops through all layers and creates bitmap for the down facing things
 			a = 0;
 			for(int i2 = 0; i2 < 256; i2++) {
-				if(chunk3->bs.d[i2 * 16 + i] == 0 && chunk3->bs.d[i2 * 16 + i + 1] != 0) {
-					bitmap->d[i2] = chunk3->bs.d[i2 * 16 + i + 1]; a = 1;
+				if(chunk3->bs->d[i2 * 16 + i] == 0 && chunk3->bs->d[i2 * 16 + i + 1] != 0) {
+					bitmap->d[i2] = chunk3->bs->d[i2 * 16 + i + 1]; a = 1;
 				} else { bitmap->d[i2] = 0; }
 			}
-			if(a) { quads = GreedyMeshingMeshGen(bitmap); UpdateLists(&quads, floats, indices, vec3_mult(offset, 16), vec3_new(-1,0,0), 'z', i + 1); }
+			if(a) { quads = GreedyMeshingMeshGen(bitmap); UpdateLists(quads, floats, indices, vec3_mult(offset, 16), vec3_new(-1,0,0), 'z', i + 1); free(quads->d); free(quads); }
 		}
 
-		for(int i = 0; i < floats->size; i++) {
+		//for(int i = 0; i < floats->size; i++) { //idk what that did lol
 			//floats[i] = (floats[i] - 0.5f) * 2;
-			((list4f *)flindices->d[0])->d[i] = ( ((list4f *)flindices->d[0])->d[i] - 0.5 ) * 2;
-		}
-		list4f_print(floats);
+			//((list4f *)flindices->d[0])->d[i] = ( ((list4f *)flindices->d[0])->d[i] - 0.5 ) * 2; //uh no what is this lol
+			//floats->d[i] = (floats->d[i] - 0.5) * 2;
+		//}
+		//list4f_print(floats);
 		list8_add1(floats, flindices); list8_add1(indices, flindices);
+		Chunk16_free(chunk2); Chunk16_free(chunk3);
+		free(bitmap->d);
 		return flindices;
 	}
 	return NULL;
@@ -397,16 +397,33 @@ void ChunksToFloatArr2(list8 *chunks, list8 *models, list8 *flindices2 /*the gre
 	for(int i = 0; i < chunks->size; i++) {
 		if(((Chunk16 *)chunks->d[i])->inited) {
 			if(((Chunk16 *)chunks->d[i])->changed) { // if chunk has been changed
-				printf("%d\n", i);
+				//printf("%d\n", i);
 				temp = ChunkToArrs(chunks, models, i);
 				if(temp != NULL) {
+					if(flindices2->size == i) { 
+						list4f *a = malloc(sizeof(list4f));
+						*a = list4f_new(0);
+						list4 *b = malloc(sizeof(list4));
+						*b = list4_new(0);
+						list8 *c = malloc(sizeof(list8));
+						*c = list8_new(0);
+						list8_add1(a, c); list8_add1(b, c);
+						list8_add1(c, flindices2);
+					}
 					list8 *pair = (list8 *)flindices2->d[i];
 					list4f *floats = (list4f *)pair->d[0];
 					list4 *indices = (list4 *)pair->d[1];
 					free(floats->d); free(indices->d);
-					floats->d = ((list4f *)temp->d[0])->d;
-					indices->d = ((list4 *)temp->d[1])->d;
-					free(temp->d[0]); free(temp->d[1]); //bc although the data is in flindices2 the structs were still malloced.
+					list4f *floats2 = (list4f *)temp->d[0];
+					list4 *indices2 = (list4 *)temp->d[1];
+					floats->d = malloc(floats2->size * sizeof(float));
+					list4f_add(floats2->d, 4 * floats2->size, floats);
+					free(floats2->d);
+					//free(floats->d); free(floats);
+					indices->d = malloc(indices2->size * sizeof(int));
+					list4_add(indices2->d, 4 * indices2->size, indices);
+					free(indices2->d);
+					//free(indices->d); free(indices);
 					free(temp->d); free(temp);
 				}
 				((Chunk16 *)chunks->d[i])->changed = 0;
@@ -421,7 +438,8 @@ list8* LoadMap(list8 *chunks) {
 	if(chunks != NULL) {
 		for(int i = 0; i < chunks->size; i++) {
 			Chunk16 *c = (Chunk16 *)chunks->d[i];
-			free(c->bs.d); free(c);
+			//free(c->bs.d); free(c);
+			Chunk16_free(c);
 		}
 		free(chunks->d);
 		*chunks = list8_new(0);
@@ -448,14 +466,13 @@ list8* LoadMap(list8 *chunks) {
 		snprintf(filename, sizeof(filename), "stuff/chunks/c%s.bin", out_init);
 		file2 = fopen(filename, "rb");
 		if(file2 != NULL) {
-			Chunk16 *c = malloc(sizeof *c);
 			vec3 v = vec3_new(0,0,0);
 			sscanf(out_init, "%f %f %f", &v.x, &v.y, &v.z);
-			*c = InitChunk(v);
+			Chunk16 *c = InitChunk(v);
 			list8_add1(c, chunks);
 			fread(bytes, sizeof(uint8_t), 4096, file2);
 			for(int i = 0; i < 4096; i++) {
-				((Chunk16 *)chunks->d[i2])->bs.d[i] = (int)bytes[i];
+				((Chunk16 *)chunks->d[i2])->bs->d[i] = (int)bytes[i];
 			}
 			i2++;
 			fclose(file2);

@@ -173,34 +173,37 @@ list8* LoadModels() {
 			while(g) {
 				if(fgets(line, sizeof(line), file)) {
 					if(line[0] == 'v' && line[1] == 'n') {
-						float a1 = m->normals.d[c1 * 3 + 0];
-						float a2 = m->normals.d[c1 * 3 + 1];
-						float a3 = m->normals.d[c1 * 3 + 2];
+						float a1, a2, a3 = 0;
 						sscanf(line, " %f %f %f", &a1, &a2, &a3);
-						//models[i].normals[c1].X = Convert.ToSingle(lines[1]);
+						m->normals.d[c1 * 3 + 0] = a1;
+						m->normals.d[c1 * 3 + 1] = a2;
+						m->normals.d[c1 * 3 + 2] = a3;
 						c1++;
 					} else if(line[0] == 'v' && line[1] == 't') {
-						float a1 = m->uvs.d[c2 * 2 + 0];
-						float a2 = m->uvs.d[c2 * 2 + 1];
+						float a1, a2 = 0;
 						sscanf(line, " %f %f", &a1, &a2);
+						m->uvs.d[c2 * 2 + 0] = a1;
+						m->uvs.d[c2 * 2 + 1] = a2;
 						c2++;
 					} else if(line[0] == 'v' && line[1] == ' ') {
-						float a1 = m->verts.d[c3 * 3 + 0];
-						float a2 = m->verts.d[c3 * 3 + 1];
-						float a3 = m->verts.d[c3 * 3 + 2];
+						float a1, a2, a3 = 0;
 						sscanf(line, " %f %f %f", &a1, &a2, &a3);
+						m->verts.d[c3 * 3 + 0] = a1;
+						m->verts.d[c3 * 3 + 1] = a2;
+						m->verts.d[c3 * 3 + 2] = a3;
 						c3++;
 					} else if(line[0] == 'f') {
-						float a1 = m->verts.d[c4 * 9 + 0];
-						float a2 = m->verts.d[c4 * 9 + 1];
-						float a3 = m->verts.d[c4 * 9 + 2];
-						float a4 = m->verts.d[c4 * 9 + 3];
-						float a5 = m->verts.d[c4 * 9 + 4];
-						float a6 = m->verts.d[c4 * 9 + 5];
-						float a7 = m->verts.d[c4 * 9 + 6];
-						float a8 = m->verts.d[c4 * 9 + 7];
-						float a9 = m->verts.d[c4 * 9 + 8];
+						float a1, a2, a3, a4, a5, a6, a7, a8, a9 = 0;
 						sscanf(line, " %f %f %f %f %f %f %f %f %f", &a1, &a2, &a3, &a4, &a5, &a6, &a7, &a8, &a9);
+						m->faces.d[c4 * 9 + 0] = a1;
+						m->faces.d[c4 * 9 + 1] = a2;
+						m->faces.d[c4 * 9 + 2] = a3;
+						m->faces.d[c4 * 9 + 3] = a4;
+						m->faces.d[c4 * 9 + 4] = a5;
+						m->faces.d[c4 * 9 + 5] = a6;
+						m->faces.d[c4 * 9 + 6] = a7;
+						m->faces.d[c4 * 9 + 7] = a8;
+						m->faces.d[c4 * 9 + 8] = a9;
 						c4++;
 					}
 				} else { g = 0; }
