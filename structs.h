@@ -54,6 +54,6 @@ typedef struct {
 
 typedef struct {
 	uint ID;
-	string vertexPath;
-	string fragmentPath;
+	listc vertexPath;
+	listc fragmentPath;
 } Shader;

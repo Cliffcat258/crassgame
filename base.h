@@ -264,9 +264,50 @@ vec4 vec4_mult_mat4(vec4 v, mat4 m) { //TODO
 }
 
 typedef struct {
-	char* d;
-	int len;
-} string;
+	int capacity;
+	int size;
+	char *d;
+} listc;
+
+listc listc_new(int size) {
+	int capacity = size * 2;
+	if(capacity == 0) { capacity = 1; }
+	listc a;
+	a.size = size; a.capacity = capacity; a.d = malloc(capacity);
+	return a;
+}
+
+void listc_changesize(listc *a, int capacity) {
+	char *b = realloc(a->d, capacity);
+	a->d = b; a->capacity = capacity;
+	return;
+}
+
+void listc_add(char *a, int size, listc *l) { //size == size of a in bytes //a == thing to add to list(same type as list)
+	int amount = size / 1;
+	for(;l->size + amount > l->capacity;) { //loop lol
+		listc_changesize(l, l->capacity * 2);
+	}
+	memcpy(l->d + l->size, a, size);
+	l->size += amount;
+	return;
+}
+
+void listc_add1(char a, listc *l) {
+	for(;l->size == l-> capacity;) {
+		listc_changesize(l, l->capacity * 2);
+	}
+	memcpy(l->d + l->size, &a, 1);
+	l->size += 1;
+	return;
+}
+
+void listc_print(listc *h) {
+	for(int i = 0; i < h->size; i++) {
+		printf("%c", h->d[i]);
+	}
+	printf("\n");
+}
 
 void drawlisttoconsole(list *l, int width, int height) {
 	for(int y = 0; y < height; y++) {
@@ -315,4 +356,17 @@ int getch2() { //retains ascii characters and adds basic escapecode characters
 void clearscreen() {
 	printf("\e[1;1H\e[2J");
 	return;
+}
+
+listc* readfile(char name[]) {
+	FILE *file = fopen(name, "r");
+	char out[100000];
+	out[0] = '\0';
+	for(;fgets(out + strlen(out), sizeof(out) - strlen(out), file);) {
+		
+	}
+	listc *out2 = malloc(sizeof *out2);
+	*out2 = listc_new(0);
+	listc_add(&out[0], strlen(out) + 1, out2);
+	return out2;
 }

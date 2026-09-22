@@ -9,3 +9,4 @@ C is great!
 How to compile:
 $gcc Game.c -lm
 (will add further instructions when I get glfw working, also project doesn't compile bc it isn't nearly finished yet just thought I'd add this for fun :). )
+gcc -g -O0 -fsanitize=address -fno-omit-frame-pointer test.c glad.c -lm -lglfw -o test (for debug)

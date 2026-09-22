@@ -9,6 +9,7 @@
 #include "globalvars.h"
 #include "models.h"
 #include "chunks.h"
+#include "render.h"
 
 int main() {
 	list8 *a = malloc(sizeof(*a));
@@ -19,9 +20,12 @@ int main() {
 	list8 *c = malloc(sizeof(*c));
 	*c = list8_new(0);
 	ChunksToFloatArr2(a, b, c);
-	for(int i = 0; i < a->size; i++) {
-		Chunk16_free((Chunk16 *)a->d[i]);
+	GLFWwindow *window;
+	window = RenderInit();
+	while(!glfwWindowShouldClose(window)) {
+		OnFrameUpdate(window);
+		OnFrameRender(window);
 	}
-	getch();
+	glfwTerminate();
 	return 0;
 }

@@ -9,36 +9,6 @@
 #include "models.h"
 #include "chunks.h"
 
-	static float[] Vec3ToFloatArrAndUVData(Vector3[] vector3s, Vector2[] UVs) {
-		float[] floats = new float[vector3s.Length * 5];
-	
-		for(int i = 0; i < vector3s.Length; i++) {
-			floats[(i * 5) + 0] = vector3s[i].X;
-			floats[(i * 5) + 1] = vector3s[i].Y;
-			floats[(i * 5) + 2] = vector3s[i].Z;
-			floats[(i * 5) + 3] = UVs[i].X;
-			floats[(i * 5) + 4] = UVs[i].Y;
-		}
-	
-		return floats;
-	}
-	
-	static uint[] FaceToUIntArr(int[][][] ints) {
-		uint[] uints = new uint[ints.Length * 3];
-	
-		for(int i = 0; i < ints.Length; i++) {
-			uints[i * 3 + 0] = Convert.ToUInt32(ints[i][0][0]);
-			uints[i * 3 + 1] = Convert.ToUInt32(ints[i][1][0]);
-			uints[i * 3 + 2] = Convert.ToUInt32(ints[i][2][0]);
-		}
-		return uints;
-	}
-	
-	bool OnUpdatePhysics() {
-		bool change = 0;
-		change = LoadUnloadChunks2();
-		return change;
-	}
 	void UpdatePlayer() {
 		float c = 0.09f; float c2 = 0.96f;
 		camerac.velocity.Y -= 0.4f;
@@ -49,6 +19,7 @@
 			camerac.velocity.Y = 0f;
 		}
 	}
+	//TODO saving
 	void SaveChunk(int i) {
 		string[] strings = new string[1000]; string s; int o = 0;
 		try {
@@ -132,6 +103,7 @@
 		sr.Close();
 		return;
 	}
+	//TODO collision
 	void PushEntityOutOfBlock2() {
 		Vector3 camerapos = Offset2(camerac.position, 2) / 4; // pos in world space   inf - inf
 		if(camerapos.Y < 5.5f) {
@@ -318,6 +290,7 @@
 		}
 		return;
 	}
+
 	(Vector3, int, Vector3, int) GetLookAtBlock(Vector3 forward) {
 		Vector3 pos = Offset2(camerac.position, 2) / 4; // pos in world space   inf - inf
 		Vector3 u = new Vector3(0, 0, 0); Vector3 resultpos; Vector3 chunkspos; Vector3 inchunkpos; int j;
