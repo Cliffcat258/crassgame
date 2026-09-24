@@ -232,18 +232,6 @@ typedef struct {
 	float d[16];
 } mat4;
 
-mat4 mat4_identity() {
-	mat4 m = {0};
-	m.d[0] = 1; m.d[5] = 1; m.d[10] = 1; m.d[15] = 1;
-	return m;
-}
-
-mat4 mat4_scale(int a) {
-	mat4 m = {0};
-	m.d[0] = a; m.d[5] = a; m.d[10] = a; m.d[15] = a;
-	return m;
-}
-
 mat4 mat4_rotx(int a) { //TODO
 	mat4 m = {0};
 	return m;
@@ -257,6 +245,82 @@ mat4 mat4_roty(int a) { //TODO
 mat4 mat4_rotz(int a) { //TODO
 	mat4 m = {0};
 	return m;
+}
+
+mat4 mat4_identity() {
+	mat4 m = {0};
+	m.d[0] = 1; m.d[5] = 1; m.d[10] = 1; m.d[15] = 1;
+	return m;
+}
+
+mat4 mat4_transform(vec3 v) {
+	mat4 m = mat4_identity();
+	m.d[12] = v.x;
+	m.d[13] = v.y;
+	m.d[14] = v.z;
+}
+
+mat4 mat4_scale(int a) {
+	mat4 m = {0};
+	m.d[0] = a; m.d[5] = a; m.d[10] = a; m.d[15] = a;
+	return m;
+}
+
+mat4 CreateFromAxisAngle(vec3 *axis, float angle) {
+	mat4 result = {0};
+	float axisX = axis->x; float axisY = axis->y; float axisZ = axis->z; 
+	float cosv = cos(-angle);
+	float sinv = sin(-angle);
+	float t = 1.0 - cosv;
+
+	float tXX = t * axisX * axisX;
+	float tXY = t * axisX * axisY;
+	float tXZ = t * axisX * axisZ;
+	float tYY = t * axisY * axisY;
+	float tYZ = t * axisY * axisZ;
+	float tZZ = t * axisZ * axisZ;
+	float sinX = sinv * axisX;
+	float sinY = sinv * axisY;
+	float sinZ = sinv * axisZ;
+	
+	result.d[0] = tXX + cosv;
+	result.d[1] = tXY - sinZ;
+	result.d[2] = tXZ + sinY;
+
+	result.d[4] = tXY + sinZ;
+	result.d[5] = tYY + cosv;
+	result.d[6] = tYZ - sinX;
+
+	result.d[8] = tXZ - sinY;
+	result.d[9] = tYZ + sinX;
+	result.d[10] = tZZ + cosv;
+
+	result.d[15] = 1;
+	return result;
+}
+
+mat4 CreatePerspective(float fovy, float aspect, float near, float far) {
+	mat4 result = {0};
+	float top = near * tan(0.5 * fovy);
+	float bottom = -top;
+	float left = bottom * aspect;
+	float right = top * aspect;
+	
+	float x = 2.0 * near / (right - left);
+	float y = 2.0 * near / (top - bottom);
+	float a = (right + left) / (right - left);
+	float b = (top + bottom) / (top - bottom);
+	float c = -(near + far) / (far - near);
+	float d = -(2.0 * near * far) / (far - near);
+	
+	result.d[0] = x;
+	result.d[5] = y;
+	result.d[8] = a;
+	result.d[9] = b;
+	result.d[10] = c;
+	result.d[11] = -1;
+	result.d[14] = d;
+	return result;
 }
 
 vec4 vec4_mult_mat4(vec4 v, mat4 m) { //TODO

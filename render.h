@@ -9,10 +9,13 @@
 #include "base.h"
 #include "globalvars.h"
 #include "structs.h"
+#include "render2.h"
 
 unsigned int VBO;
 unsigned int VAO;
 unsigned int shaderProgram;
+renderContext *r;
+float timev;
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
 	glViewport(0, 0, width, height);
@@ -41,6 +44,7 @@ GLFWwindow* RenderInit() { //OpenGL stuff and GLFW idk
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);  
 
 	//shaders
+	if(0) {
 	unsigned int vertexShader;
 	vertexShader = glCreateShader(GL_VERTEX_SHADER);
 	char *vertexShaderSource = readfile("shader.vert")->d;
@@ -83,6 +87,21 @@ GLFWwindow* RenderInit() { //OpenGL stuff and GLFW idk
 	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_DYNAMIC_DRAW);
 
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+	}
+	//shorter version
+	r = malloc(sizeof(*r));
+	*r = rc_new("shader.vert", "shader.frag");
+	
+	list4f vertices = list4f_new(0);
+	float verticeso[] = { 0.5f,  0.5f, 5.0f, 0.5f, -0.5f, 5.0f, -0.5f,  0.5f, 5.0f, 0.5f, -0.5f, 5.0f, -0.5f, -0.5f, 5.0f, -0.5f,  0.5f, 5.0f };
+	list4f_add(&verticeso[0], sizeof(verticeso), &vertices);
+	list4 indices = list4_new(0);
+	int indiceso[] = { 0, 1, 2, 3, 4, 5 };
+	list4_add(&indiceso[0], sizeof(indiceso), &indices);
+
+	rc_update(r, &vertices, &indices);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(0);
 
 	return window;
 }
@@ -99,9 +118,24 @@ void OnFrameRender(GLFWwindow *window) {
 	glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
 
+	if(0) {
 	glUseProgram(shaderProgram);
 	glBindVertexArray(VAO);
 	glDrawArrays(GL_TRIANGLES, 0, 3);
+	}
+	rc_use(r);
+
+	vec3 v = vec3_new(0, 1, 0);
+	view = CreateFromAxisAngle(&v, timev);
+	timev += 0.01;
+	int location = glGetUniformLocation(r->shaderProgram, "view");
+	glUniformMatrix4fv(location, 1, GL_FALSE, &view.d[0]);
+	projection = CreatePerspective(80, 1.5, 0.0001, 10000);
+	int location1 = glGetUniformLocation(r->shaderProgram, "projection");
+	glUniformMatrix4fv(location1, 1, GL_FALSE, &projection.d[0]);
+
+	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+	glBindVertexArray(0);
 
 	glfwSwapBuffers(window);
 	return;
